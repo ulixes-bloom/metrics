@@ -83,6 +83,8 @@ func TestUpdateMetric(t *testing.T) {
 			UpdateMetric(w, request)
 
 			res := w.Result()
+			defer res.Body.Close()
+
 			assert.Equal(t, test.args.expectedCode, res.StatusCode)
 		})
 	}

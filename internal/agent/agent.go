@@ -77,14 +77,15 @@ func (a *Agent) SendMetric(mtype, mname, mval string) {
 	url := fmt.Sprintf("%s/update/%s/%s/%s", a.ServerAddr, mtype, mname, mval)
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
+		return
 	}
-
 	req.Header.Set("Content-Type", "text/plain")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 
 	if err != nil {
+		return
 	}
 	defer resp.Body.Close()
 }
