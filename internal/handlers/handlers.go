@@ -5,10 +5,10 @@ import (
 	"regexp"
 	"strconv"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/storage"
 )
 
-var MemStorage = metrics.NewMemStorage()
+var MemStorage = storage.NewMemStorage()
 
 func UpdateMetric(res http.ResponseWriter, req *http.Request) {
 	if req.Method == http.MethodPost {
@@ -20,13 +20,13 @@ func UpdateMetric(res http.ResponseWriter, req *http.Request) {
 			switch mtype {
 			case "gauge":
 				if val, err := strconv.ParseFloat(mval, 64); err == nil {
-					MemStorage.AddGauge(mname, metrics.Gauge(val))
+					MemStorage.AddGauge(mname, val)
 				} else {
 					res.WriteHeader(http.StatusBadRequest)
 				}
 			case "counter":
 				if val, err := strconv.ParseInt(mval, 10, 64); err == nil {
-					MemStorage.AddCounter(mname, metrics.Counter(val))
+					MemStorage.AddCounter(mname, val)
 				} else {
 					res.WriteHeader(http.StatusBadRequest)
 				}
