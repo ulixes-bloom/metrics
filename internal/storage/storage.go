@@ -9,7 +9,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/metrics"
 )
 
-const HtmlTemplate = `<html>
+const HTMLTemplate = `<html>
 	<head>
     	<title></title>
     </head>
@@ -72,7 +72,7 @@ func (m *MemStorage) All() map[string]string {
 	return res
 }
 
-func (m *MemStorage) HtmlTable() (res []byte) {
+func (m *MemStorage) HTMLTable() (res []byte) {
 	var wr bytes.Buffer
 	tmpl, err := template.New("tmpl").Parse(HtmlTemplate)
 	if err != nil {

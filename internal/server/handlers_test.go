@@ -90,6 +90,8 @@ func TestUpdateMetric(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			resp, _ := testRequest(t, ts, test.args.method, test.args.url)
+			defer resp.Body.Close()
+
 			assert.Equal(t, test.args.expectedCode, resp.StatusCode)
 		})
 	}
