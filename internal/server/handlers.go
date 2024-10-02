@@ -14,7 +14,7 @@ var MemStorage = storage.NewMemStorage()
 func GetMetricsList(res http.ResponseWriter, req *http.Request) {
 	res.Header().Add("Content-Type", "text/html; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
-	res.Write(MemStorage.HtmlTable())
+	res.Write(MemStorage.HTMLTable())
 }
 
 func GetMetric(res http.ResponseWriter, req *http.Request) {

@@ -74,7 +74,7 @@ func (m *MemStorage) All() map[string]string {
 
 func (m *MemStorage) HTMLTable() (res []byte) {
 	var wr bytes.Buffer
-	tmpl, err := template.New("tmpl").Parse(HtmlTemplate)
+	tmpl, err := template.New("tmpl").Parse(HTMLTemplate)
 	if err != nil {
 		log.Fatal(err)
 	}
