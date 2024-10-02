@@ -3,14 +3,12 @@ package main
 import (
 	"net/http"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/handlers"
+	"github.com/ulixes-bloom/ya-metrics/internal/server"
 )
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc(`/update/`, handlers.UpdateMetric)
-
-	err := http.ListenAndServe(`:8080`, mux)
+	r := server.Router()
+	err := http.ListenAndServe(`:8080`, r)
 	if err != nil {
 		panic(err)
 	}

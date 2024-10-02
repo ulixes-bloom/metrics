@@ -1,12 +1,29 @@
-package handlers
+package server
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func testRequest(t *testing.T, ts *httptest.Server, method,
+	path string) (*http.Response, string) {
+	req, err := http.NewRequest(method, ts.URL+path, nil)
+	require.NoError(t, err)
+
+	resp, err := ts.Client().Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+
+	return resp, string(respBody)
+}
 
 func TestUpdateMetric(t *testing.T) {
 	type args struct {
@@ -14,6 +31,9 @@ func TestUpdateMetric(t *testing.T) {
 		method       string
 		expectedCode int
 	}
+	ts := httptest.NewServer(Router())
+	defer ts.Close()
+
 	tests := []struct {
 		name string
 		args args
@@ -35,19 +55,11 @@ func TestUpdateMetric(t *testing.T) {
 			},
 		},
 		{
-			name: "Empty url",
-			args: args{
-				url:          "/",
-				method:       http.MethodPost,
-				expectedCode: http.StatusNotFound,
-			},
-		},
-		{
 			name: "Wrong method",
 			args: args{
 				url:          "/update/gauge/some/1",
 				method:       http.MethodGet,
-				expectedCode: http.StatusBadRequest,
+				expectedCode: http.StatusMethodNotAllowed,
 			},
 		},
 		{
@@ -67,25 +79,18 @@ func TestUpdateMetric(t *testing.T) {
 			},
 		},
 		{
-			name: "Url with incomplete metric information",
+			name: "Return all metrics",
 			args: args{
-				url:          "/update/newmetric/1",
-				method:       http.MethodPost,
-				expectedCode: http.StatusNotFound,
+				url:          "/",
+				method:       http.MethodGet,
+				expectedCode: http.StatusOK,
 			},
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			request := httptest.NewRequest(test.args.method, test.args.url, nil)
-			w := httptest.NewRecorder()
-
-			UpdateMetric(w, request)
-
-			res := w.Result()
-			defer res.Body.Close()
-
-			assert.Equal(t, test.args.expectedCode, res.StatusCode)
+			resp, _ := testRequest(t, ts, test.args.method, test.args.url)
+			assert.Equal(t, test.args.expectedCode, resp.StatusCode)
 		})
 	}
 }
