@@ -12,7 +12,7 @@ func main() {
 	a := agent.NewAgent(
 		time.Duration(flagPollInterval)*time.Second,
 		time.Duration(flagReportInterval)*time.Second,
-		flagServerAddr)
+		"http://"+flagServerAddr)
 
 	go func() {
 		for {
