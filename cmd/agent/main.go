@@ -7,10 +7,12 @@ import (
 )
 
 func main() {
+	parseFlags()
+
 	a := agent.NewAgent(
-		time.Duration(2*time.Second),
-		time.Duration(10*time.Second),
-		"http://localhost:8080")
+		time.Duration(flagPollInterval)*time.Second,
+		time.Duration(flagReportInterval)*time.Second,
+		flagServerAddr)
 
 	go func() {
 		for {
