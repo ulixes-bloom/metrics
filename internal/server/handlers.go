@@ -1,7 +1,6 @@
 package server
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -78,6 +77,6 @@ func UpdateMetric(res http.ResponseWriter, req *http.Request) {
 		res.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	fmt.Println("ok")
+
 	res.WriteHeader(http.StatusOK)
 }
