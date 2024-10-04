@@ -10,9 +10,9 @@ func main() {
 	conf := parseConfig()
 
 	a := agent.NewAgent(
-		time.Duration(conf.pollInterval)*time.Second,
-		time.Duration(conf.reportInterval)*time.Second,
-		"http://"+conf.serverAddr)
+		time.Duration(conf.PollInterval)*time.Second,
+		time.Duration(conf.ReportInterval)*time.Second,
+		"http://"+conf.ServerAddr)
 
 	go func() {
 		for {

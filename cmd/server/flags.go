@@ -7,11 +7,11 @@ import (
 )
 
 type config struct {
-	runAddr string `env:"ADDRESS"`
+	RunAddr string `env:"ADDRESS"`
 }
 
 func parseConfig() (conf config) {
-	flag.StringVar(&conf.runAddr, "a", ":8080", "address and port to run server")
+	flag.StringVar(&conf.RunAddr, "a", ":8080", "address and port to run server")
 	flag.Parse()
 
 	env.Parse(&conf)

@@ -10,7 +10,7 @@ func main() {
 	conf := parseConfig()
 
 	r := server.Router()
-	err := http.ListenAndServe(conf.runAddr, r)
+	err := http.ListenAndServe(conf.RunAddr, r)
 	if err != nil {
 		panic(err)
 	}
