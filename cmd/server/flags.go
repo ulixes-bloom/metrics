@@ -2,11 +2,18 @@ package main
 
 import (
 	"flag"
+
+	"github.com/caarlos0/env"
 )
 
-var flagRunAddr string
+type config struct {
+	runAddr string `env:"ADDRESS"`
+}
 
-func parseFlags() {
-	flag.StringVar(&flagRunAddr, "a", ":8080", "address and port to run server")
+func parseConfig() (conf config) {
+	flag.StringVar(&conf.runAddr, "a", ":8080", "address and port to run server")
 	flag.Parse()
+
+	env.Parse(&conf)
+	return
 }

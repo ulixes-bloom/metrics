@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	parseFlags()
+	conf := parseConfig()
 
 	r := server.Router()
-	err := http.ListenAndServe(flagRunAddr, r)
+	err := http.ListenAndServe(conf.runAddr, r)
 	if err != nil {
 		panic(err)
 	}
