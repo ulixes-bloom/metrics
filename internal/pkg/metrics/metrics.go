@@ -1,5 +1,8 @@
 package metrics
 
+const Counter = "counter"
+const Gauge = "gauge"
+
 var CounterMetrics = []string{
 	"PollCount",
 }

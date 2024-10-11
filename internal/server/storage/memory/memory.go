@@ -1,12 +1,11 @@
-package storage
+package memory
 
 import (
 	"bytes"
 	"html/template"
-	"log"
 	"strconv"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
 const HTMLTemplate = `<html>
@@ -72,17 +71,18 @@ func (m *MemStorage) All() map[string]string {
 	return res
 }
 
-func (m *MemStorage) HTMLTable() (res []byte) {
+func (m *MemStorage) HTMLTable() ([]byte, error) {
 	var wr bytes.Buffer
 	tmpl, err := template.New("tmpl").Parse(HTMLTemplate)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
 	err = tmpl.Execute(&wr, m.All())
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	res = wr.Bytes()
-	return
+
+	res := wr.Bytes()
+	return res, nil
 }

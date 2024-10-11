@@ -1,17 +1,15 @@
 package main
 
 import (
-	"net/http"
-
-	"github.com/ulixes-bloom/ya-metrics/internal/server"
+	"github.com/rs/zerolog/log"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/api"
 )
 
 func main() {
 	conf := parseConfig()
 
-	r := server.Router()
-	err := http.ListenAndServe(conf.RunAddr, r)
+	err := api.Run(conf.RunAddr)
 	if err != nil {
-		panic(err)
+		log.Fatal().Msg(err.Error())
 	}
 }
