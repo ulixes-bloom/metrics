@@ -4,21 +4,25 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 )
 
 type Handler struct {
 	Sevice Service
+	Logger zerolog.Logger
 }
 
-func NewHandler(service Service) *Handler {
-	return &Handler{Sevice: service}
+func NewHandler(service Service, logger zerolog.Logger) *Handler {
+	return &Handler{
+		Sevice: service,
+		Logger: logger,
+	}
 }
 
 func (h *Handler) GetMetricsHTMLTable(res http.ResponseWriter, req *http.Request) {
 	table, err := h.Sevice.GetMetricsHTMLTable()
 	if err != nil {
-		log.Error().Msg(err.Error())
+		h.Logger.Error().Msg(err.Error())
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
 
@@ -37,7 +41,7 @@ func (h *Handler) GetMetric(res http.ResponseWriter, req *http.Request) {
 
 	mval, err := h.Sevice.GetMetric(mtype, mname)
 	if err != nil {
-		log.Error().Msg(err.Error())
+		h.Logger.Error().Msg(err.Error())
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
 

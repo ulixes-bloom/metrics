@@ -31,7 +31,7 @@ func TestUpdateMetric(t *testing.T) {
 		method       string
 		expectedCode int
 	}
-	ts := httptest.NewServer(Router())
+	ts := httptest.NewServer(Router("Info"))
 	defer ts.Close()
 
 	tests := []struct {
