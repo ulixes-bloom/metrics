@@ -5,17 +5,17 @@ import (
 	"time"
 )
 
-func (handler *Handler) WithLogging(h http.Handler) http.Handler {
+func (h *Handler) WithLogging(handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
 		uri := r.RequestURI
 		method := r.Method
 
-		h.ServeHTTP(w, r) // обслуживание оригинального запроса
+		handler.ServeHTTP(w, r)
 
 		duration := time.Since(start)
-		handler.Logger.Info().
+		h.Logger.Info().
 			Str("uri", uri).
 			Str("method", method).
 			Str("duration", duration.String()).
