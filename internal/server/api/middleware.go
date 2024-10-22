@@ -15,7 +15,7 @@ func (h *Handler) WithLogging(handler http.Handler) http.Handler {
 		handler.ServeHTTP(w, r)
 
 		duration := time.Since(start)
-		h.Logger.Info().
+		h.Logger.Debug().
 			Str("uri", uri).
 			Str("method", method).
 			Str("duration", duration.String()).

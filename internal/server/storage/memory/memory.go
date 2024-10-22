@@ -37,7 +37,6 @@ func NewMemStorage() *MemStorage {
 	m := MemStorage{}
 	m.Metrics = make(map[string]metrics.Metric,
 		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
-
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
 		m.Metrics[g] = metrics.Metric{
@@ -60,10 +59,14 @@ func NewMemStorage() *MemStorage {
 func (m *MemStorage) Add(metric metrics.Metric) (metrics.Metric, error) {
 	switch metric.MType {
 	case metrics.Counter:
-		cur := m.Metrics[metric.ID]
-		newDelta := (*metric.Delta + *cur.Delta)
-		metric.Delta = &newDelta
-		m.Metrics[metric.ID] = metric
+		cur, ok := m.Metrics[metric.ID]
+		if ok {
+			newDelta := (*metric.Delta + *cur.Delta)
+			metric.Delta = &newDelta
+			m.Metrics[metric.ID] = metric
+		} else {
+			m.Metrics[metric.ID] = metric
+		}
 	case metrics.Gauge:
 		m.Metrics[metric.ID] = metric
 	default:

@@ -43,7 +43,7 @@ func (c *Client) SendMetric(m metrics.Metric) {
 		log.Fatalf("impossible to marshall metric: %s", err)
 	}
 
-	url := fmt.Sprintf("%s/update", c.ServerAddr)
+	url := fmt.Sprintf("%s/update/", c.ServerAddr)
 	resp, err := http.Post(url, "application/json", bytes.NewReader(marshalled))
 	if err != nil {
 		return
