@@ -1,7 +1,8 @@
 package api
 
+import "github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+
 type Service interface {
 	UpdateMetrics()
-	GetAllGauges() map[string]float64
-	GetAllCounters() map[string]int64
+	GetAll() map[string]metrics.Metric
 }

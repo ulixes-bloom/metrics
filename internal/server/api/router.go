@@ -31,7 +31,7 @@ func Router(loglvl string) chi.Router {
 	r := chi.NewRouter()
 	r.Use(h.WithLogging)
 	r.Get("/", h.GetMetricsHTMLTable)
-	r.Get("/value/{mtype}/{mname}", h.GetMetric)
-	r.Post("/update/{mtype}/{mname}/{mval}", h.UpdateMetric)
+	r.Post("/value", h.GetJSONMetric)
+	r.Post("/update", h.UpdateJSONMetric)
 	return r
 }

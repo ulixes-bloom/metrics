@@ -5,23 +5,42 @@ import (
 )
 
 type MemStorage struct {
-	Gauges   map[string]float64
-	Counters map[string]int64
+	Metrics map[string]metrics.Metric
 }
 
 func NewMemStorage() *MemStorage {
 	m := MemStorage{}
-	m.Gauges = make(map[string]float64, len(metrics.GaugeMetrics))
-	m.Counters = make(map[string]int64, len(metrics.CounterMetrics))
+	m.Metrics = make(map[string]metrics.Metric,
+		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
+
+	for _, g := range metrics.GaugeMetrics {
+		zeroVal := float64(0)
+		m.Metrics[g] = metrics.Metric{
+			ID:    g,
+			MType: metrics.Gauge,
+			Value: &zeroVal,
+		}
+	}
+	for _, c := range metrics.CounterMetrics {
+		zeroVal := int64(0)
+		m.Metrics[c] = metrics.Metric{
+			ID:    c,
+			MType: metrics.Counter,
+			Delta: &zeroVal,
+		}
+	}
 	return &m
 }
 
-func (m *MemStorage) Add(name string, value interface{}) error {
-	switch v := value.(type) {
-	case int64:
-		m.Counters[name] += v
-	case float64:
-		m.Gauges[name] = v
+func (m *MemStorage) Add(metric metrics.Metric) error {
+	switch metric.MType {
+	case metrics.Counter:
+		cur := m.Metrics[metric.ID]
+		newDelta := (*metric.Delta + *cur.Delta)
+		metric.Delta = &newDelta
+		m.Metrics[metric.ID] = metric
+	case metrics.Gauge:
+		m.Metrics[metric.ID] = metric
 	default:
 		return nil
 	}
@@ -29,20 +48,11 @@ func (m *MemStorage) Add(name string, value interface{}) error {
 	return nil
 }
 
-func (m *MemStorage) GetGauge(name string) (val float64, ok bool) {
-	val, ok = m.Gauges[name]
+func (m *MemStorage) Get(name string) (val metrics.Metric, ok bool) {
+	val, ok = m.Metrics[name]
 	return
 }
 
-func (m *MemStorage) GetCounter(name string) (val int64, ok bool) {
-	val, ok = m.Counters[name]
-	return
-}
-
-func (m *MemStorage) GetAllGauges() map[string]float64 {
-	return m.Gauges
-}
-
-func (m *MemStorage) GetAllCounters() map[string]int64 {
-	return m.Counters
+func (m *MemStorage) GetAll() map[string]metrics.Metric {
+	return m.Metrics
 }

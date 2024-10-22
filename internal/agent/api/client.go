@@ -1,7 +1,10 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -29,28 +32,22 @@ func (c *Client) UpdateMetrics() {
 }
 
 func (c *Client) SendMetrics() {
-	for k, v := range c.Service.GetAllGauges() {
-		c.SendMetric(metrics.Gauge, k, fmt.Sprintf("%v", v))
-	}
-
-	for k, v := range c.Service.GetAllCounters() {
-		c.SendMetric(metrics.Counter, k, fmt.Sprintf("%d", v))
+	for _, v := range c.Service.GetAll() {
+		c.SendMetric(v)
 	}
 }
 
-func (c *Client) SendMetric(mtype, mname, mval string) {
-	url := fmt.Sprintf("%s/update/%s/%s/%s", c.ServerAddr, mtype, mname, mval)
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+func (c *Client) SendMetric(m metrics.Metric) {
+	marshalled, err := json.Marshal(m)
+	if err != nil {
+		log.Fatalf("impossible to marshall metric: %s", err)
+	}
+
+	url := fmt.Sprintf("%s/update", c.ServerAddr)
+	resp, err := http.Post(url, "application/json", bytes.NewReader(marshalled))
 	if err != nil {
 		return
 	}
-	req.Header.Set("Content-Type", "text/plain")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-
-	if err != nil {
-		return
-	}
 	defer resp.Body.Close()
 }

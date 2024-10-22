@@ -1,7 +1,9 @@
 package api
 
+import "github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+
 type Service interface {
 	GetMetricsHTMLTable() ([]byte, error)
-	GetMetric(mtype, mname string) ([]byte, error)
-	UpdateMetric(mtype, mname, mval string) error
+	GetJSONMetric(mtype, mname string) ([]byte, error)
+	UpdateJSONMetric(metric metrics.Metric) ([]byte, error)
 }
