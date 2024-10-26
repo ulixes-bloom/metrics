@@ -84,6 +84,7 @@ func (h *Handler) GetJSONMetric(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Add("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
 	res.Write(metric)
 }
 
@@ -104,5 +105,6 @@ func (h *Handler) UpdateJSONMetric(res http.ResponseWriter, req *http.Request) {
 	}
 
 	res.Header().Add("Content-Type", "application/json")
+	res.WriteHeader(http.StatusOK)
 	res.Write(metric)
 }

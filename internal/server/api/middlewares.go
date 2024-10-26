@@ -31,9 +31,7 @@ func (h *Handler) WithCompressing(next http.Handler) http.Handler {
 		ow := w
 
 		acceptEncoding := r.Header.Get("Accept-Encoding")
-		contentType := r.Header.Get("Content-Type")
-		if strings.Contains(acceptEncoding, "gzip") &&
-			(strings.Contains(contentType, "application/json") || strings.Contains(contentType, "text/html")) {
+		if strings.Contains(acceptEncoding, "gzip") {
 			cw := compress.NewGzipWriter(w)
 			ow = cw
 			defer cw.Close()
