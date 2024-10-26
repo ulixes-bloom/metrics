@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -43,11 +44,31 @@ func (c *Client) SendMetric(m metrics.Metric) {
 		log.Fatalf("impossible to marshall metric: %s", err)
 	}
 
+	buf := bytes.NewBuffer(nil)
+	gb := gzip.NewWriter(buf)
+	_, err = gb.Write(marshalled)
+	if err != nil {
+		log.Fatalf("impossible to compress metric ussing gzip: %s", err)
+	}
+	err = gb.Close()
+	if err != nil {
+		log.Fatalf("impossible to compress metric ussing gzip: %s", err)
+	}
+
 	url := fmt.Sprintf("%s/update/", c.ServerAddr)
-	resp, err := http.Post(url, "application/json", bytes.NewReader(marshalled))
+	req, err := http.NewRequest(http.MethodPost, url, buf)
+	if err != nil {
+		return
+	}
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept-Encoding", "gzip")
+	req.Header.Add("Content-Encoding", "gzip")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
 	if err != nil {
 		return
 	}
 
-	defer resp.Body.Close()
+	defer res.Body.Close()
 }
