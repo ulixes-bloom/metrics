@@ -1,4 +1,4 @@
-package api
+package client
 
 import "github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 

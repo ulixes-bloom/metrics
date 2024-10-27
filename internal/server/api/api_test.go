@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body []byte) (*http.Response, string) {
@@ -31,7 +33,7 @@ func TestUpdateMetric(t *testing.T) {
 		method       string
 		expectedCode int
 	}
-	ts := httptest.NewServer(Router("Info"))
+	ts := httptest.NewServer(New(config.Config{}).router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -104,7 +106,7 @@ func TestUpdateJSONMetric(t *testing.T) {
 		expectedCode int
 		body         []byte
 	}
-	ts := httptest.NewServer(Router("Info"))
+	ts := httptest.NewServer(New(config.Config{}).router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -168,7 +170,65 @@ func TestUpdateJSONMetric(t *testing.T) {
 
 type Metrics struct {
 	ID    string   `json:"id"`
-	MType string   `json:"type"`            // Параметр кодирую строкой, принося производительность в угоду наглядности.
-	Delta *int64   `json:"delta,omitempty"` // counter
-	Value *float64 `json:"value,omitempty"` // gauge
+	MType string   `json:"type"`
+	Delta *int64   `json:"delta,omitempty"`
+	Value *float64 `json:"value,omitempty"`
+}
+
+func TestGzipCompression(t *testing.T) {
+	type args struct {
+		url          string
+		method       string
+		expectedCode int
+		body         []byte
+	}
+	ts := httptest.NewServer(New(config.Config{}).router)
+	defer ts.Close()
+
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "Correct request with gauge metric",
+			args: args{
+				url:          "/update/",
+				method:       http.MethodPost,
+				expectedCode: http.StatusOK,
+				body:         []byte(`{"id":"Getsetzip","type":"gauge","value":13}`),
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			buf := bytes.NewBuffer(nil)
+			gb := gzip.NewWriter(buf)
+
+			_, err := gb.Write([]byte(test.args.body))
+			require.NoError(t, err)
+
+			err = gb.Close()
+			require.NoError(t, err)
+
+			// create request
+			req, err := http.NewRequest(test.args.method, ts.URL+test.args.url, bytes.NewReader(test.args.body))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept-Encoding", "gzip")
+			require.NoError(t, err)
+
+			// do request
+			resp, err := ts.Client().Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			require.Equal(t, test.args.expectedCode, resp.StatusCode)
+
+			//check response
+			gr, err := gzip.NewReader(resp.Body)
+			require.NoError(t, err)
+			respBody, err := io.ReadAll(gr)
+			require.NoError(t, err)
+			require.Equal(t, respBody, test.args.body)
+		})
+	}
 }

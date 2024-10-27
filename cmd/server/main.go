@@ -1,16 +1,11 @@
 package main
 
 import (
-	"log"
-
 	"github.com/ulixes-bloom/ya-metrics/internal/server/api"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
 
 func main() {
-	conf := parseConfig()
-
-	err := api.Run(conf.RunAddr, conf.LogLvl)
-	if err != nil {
-		log.Fatal(err)
-	}
+	conf := config.Parse()
+	api.New(conf).Run()
 }

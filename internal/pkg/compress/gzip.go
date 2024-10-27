@@ -33,7 +33,6 @@ func (gw *GzipWriter) WriteHeader(statusCode int) {
 	gw.w.WriteHeader(statusCode)
 }
 
-// Close закрывает gzip.Writer и досылает все данные из буфера.
 func (gw *GzipWriter) Close() error {
 	return gw.Writer.Close()
 }

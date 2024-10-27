@@ -7,4 +7,6 @@ type Storage interface {
 	Get(name string) (val metrics.Metric, ok bool)
 	All() map[string]string
 	HTMLTable() ([]byte, error)
+	RestoreMetrics() error
+	StoreMetrics() error
 }

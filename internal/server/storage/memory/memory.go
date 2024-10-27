@@ -2,7 +2,9 @@ package memory
 
 import (
 	"bytes"
+	"encoding/json"
 	"html/template"
+	"os"
 	"strconv"
 
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
@@ -29,17 +31,18 @@ const HTMLTemplate = `<html>
 	</body>
 </html>`
 
-type MemStorage struct {
-	Metrics map[string]metrics.Metric
+type storage struct {
+	metrics       map[string]metrics.Metric
+	storeFilePath string
 }
 
-func NewMemStorage() *MemStorage {
-	m := MemStorage{}
-	m.Metrics = make(map[string]metrics.Metric,
+func NewStorage(storeFilePath string) *storage {
+	s := storage{storeFilePath: storeFilePath}
+	s.metrics = make(map[string]metrics.Metric,
 		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
-		m.Metrics[g] = metrics.Metric{
+		s.metrics[g] = metrics.Metric{
 			ID:    g,
 			MType: metrics.Gauge,
 			Value: &zeroVal,
@@ -47,28 +50,28 @@ func NewMemStorage() *MemStorage {
 	}
 	for _, c := range metrics.CounterMetrics {
 		zeroVal := int64(0)
-		m.Metrics[c] = metrics.Metric{
+		s.metrics[c] = metrics.Metric{
 			ID:    c,
 			MType: metrics.Counter,
 			Delta: &zeroVal,
 		}
 	}
-	return &m
+	return &s
 }
 
-func (m *MemStorage) Add(metric metrics.Metric) (metrics.Metric, error) {
+func (s *storage) Add(metric metrics.Metric) (metrics.Metric, error) {
 	switch metric.MType {
 	case metrics.Counter:
-		cur, ok := m.Metrics[metric.ID]
+		cur, ok := s.metrics[metric.ID]
 		if ok {
 			newDelta := (*metric.Delta + *cur.Delta)
 			metric.Delta = &newDelta
-			m.Metrics[metric.ID] = metric
+			s.metrics[metric.ID] = metric
 		} else {
-			m.Metrics[metric.ID] = metric
+			s.metrics[metric.ID] = metric
 		}
 	case metrics.Gauge:
-		m.Metrics[metric.ID] = metric
+		s.metrics[metric.ID] = metric
 	default:
 		return metric, errors.ErrMetricTypeNotImplemented
 	}
@@ -76,14 +79,14 @@ func (m *MemStorage) Add(metric metrics.Metric) (metrics.Metric, error) {
 	return metric, nil
 }
 
-func (m *MemStorage) Get(name string) (metrics.Metric, bool) {
-	metric, ok := m.Metrics[name]
+func (s *storage) Get(name string) (metrics.Metric, bool) {
+	metric, ok := s.metrics[name]
 	return metric, ok
 }
 
-func (m *MemStorage) All() map[string]string {
+func (s *storage) All() map[string]string {
 	res := make(map[string]string)
-	for k, v := range m.Metrics {
+	for k, v := range s.metrics {
 		switch v.MType {
 		case metrics.Counter:
 			res[k] = strconv.FormatInt(*v.Delta, 10)
@@ -94,18 +97,53 @@ func (m *MemStorage) All() map[string]string {
 	return res
 }
 
-func (m *MemStorage) HTMLTable() ([]byte, error) {
+func (s *storage) HTMLTable() ([]byte, error) {
 	var wr bytes.Buffer
 	tmpl, err := template.New("tmpl").Parse(HTMLTemplate)
 	if err != nil {
 		return nil, err
 	}
 
-	err = tmpl.Execute(&wr, m.All())
+	err = tmpl.Execute(&wr, s.All())
 	if err != nil {
 		return nil, err
 	}
 
 	res := wr.Bytes()
 	return res, nil
+}
+
+func (s *storage) RestoreMetrics() error {
+	file, err := os.OpenFile(s.storeFilePath, os.O_RDONLY, 0644)
+	if err != nil {
+		return err
+	}
+
+	var restoredMetrics map[string]metrics.Metric
+	err = json.NewDecoder(file).Decode(&restoredMetrics)
+	if err != nil {
+		return err
+	}
+
+	s.metrics = restoredMetrics
+	return nil
+}
+
+func (s *storage) StoreMetrics() error {
+	file, err := os.OpenFile(s.storeFilePath, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	dataMetricsJSON, err := json.Marshal(s.metrics)
+	if err != nil {
+		return err
+	}
+	_, err = file.Write(dataMetricsJSON)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

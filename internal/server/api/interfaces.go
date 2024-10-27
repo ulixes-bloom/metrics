@@ -8,4 +8,5 @@ type Service interface {
 	GetMetricsHTMLTable() ([]byte, error)
 	GetJSONMetric(metric metrics.Metric) ([]byte, error)
 	UpdateJSONMetric(metric metrics.Metric) ([]byte, error)
+	ShutDown()
 }

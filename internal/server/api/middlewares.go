@@ -8,7 +8,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/compress"
 )
 
-func (h *Handler) WithLogging(next http.Handler) http.Handler {
+func (a *api) MiddlewareLogging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
@@ -18,7 +18,7 @@ func (h *Handler) WithLogging(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 
 		duration := time.Since(start)
-		h.Logger.Debug().
+		a.log.Debug().
 			Str("uri", uri).
 			Str("method", method).
 			Str("duration", duration.String()).
@@ -26,7 +26,7 @@ func (h *Handler) WithLogging(next http.Handler) http.Handler {
 	})
 }
 
-func (h *Handler) WithCompressing(next http.Handler) http.Handler {
+func (a *api) MiddlewareCompressing(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w
 

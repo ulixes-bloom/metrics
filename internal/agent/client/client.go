@@ -1,4 +1,4 @@
-package api
+package client
 
 import (
 	"bytes"
@@ -6,39 +6,61 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+
 	"net/http"
 	"time"
 
+	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
+	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
+	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
-type Client struct {
+type client struct {
 	Service        Service
 	PollInterval   time.Duration
 	ReportInterval time.Duration
 	ServerAddr     string
 }
 
-func NewClient(service Service, pollInterval, reportInterval time.Duration, serverAddr string) *Client {
-	return &Client{
-		Service:        service,
-		PollInterval:   pollInterval,
-		ReportInterval: reportInterval,
-		ServerAddr:     serverAddr,
+func New(conf config.Config) *client {
+	ms := memory.NewStorage()
+	s := service.New(ms)
+
+	return &client{
+		Service:        s,
+		PollInterval:   time.Duration(conf.PollInterval) * time.Second,
+		ReportInterval: time.Duration(conf.ReportInterval) * time.Second,
+		ServerAddr:     "http://" + conf.ServerAddr,
 	}
 }
 
-func (c *Client) UpdateMetrics() {
+func (c *client) Run() {
+	go func() {
+		for {
+			c.UpdateMetrics()
+
+			time.Sleep(c.PollInterval)
+		}
+	}()
+	for {
+		time.Sleep(c.ReportInterval)
+
+		c.SendMetrics()
+	}
+}
+
+func (c *client) UpdateMetrics() {
 	c.Service.UpdateMetrics()
 }
 
-func (c *Client) SendMetrics() {
+func (c *client) SendMetrics() {
 	for _, v := range c.Service.GetAll() {
 		c.SendMetric(v)
 	}
 }
 
-func (c *Client) SendMetric(m metrics.Metric) {
+func (c *client) SendMetric(m metrics.Metric) {
 	marshalled, err := json.Marshal(m)
 	if err != nil {
 		log.Fatalf("impossible to marshall metric: %s", err)
