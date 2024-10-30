@@ -1,11 +1,11 @@
 package api
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
-	"syscall"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -40,7 +40,7 @@ func New(conf config.Config) *api {
 	return &newAPI
 }
 
-func (a *api) Run() {
+func (a *api) Run(ctx context.Context) {
 	go func() {
 		err := http.ListenAndServe(a.config.RunAddr, a.router)
 		if err != nil {
@@ -48,10 +48,18 @@ func (a *api) Run() {
 		}
 	}()
 
-	shutDown := make(chan os.Signal, 1)
-	signal.Notify(shutDown, syscall.SIGTERM, syscall.SIGINT)
-	<-shutDown
-	a.service.ShutDown()
+	storeTicker := time.NewTicker(a.config.StoreInterval)
+	defer storeTicker.Stop()
+
+	for {
+		select {
+		case <-storeTicker.C:
+			a.service.StoreMetrics()
+		case <-ctx.Done():
+			a.service.ShutDown()
+			return
+		}
+	}
 }
 
 func (a *api) newRouter() *chi.Mux {

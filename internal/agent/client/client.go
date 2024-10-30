@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -36,18 +37,21 @@ func New(conf config.Config) *client {
 	}
 }
 
-func (c *client) Run() {
-	go func() {
-		for {
-			c.UpdateMetrics()
+func (c *client) Run(ctx context.Context) {
+	pollTicker := time.NewTicker(c.PollInterval)
+	reportTicker := time.NewTicker(c.ReportInterval)
+	defer pollTicker.Stop()
+	defer reportTicker.Stop()
 
-			time.Sleep(c.PollInterval)
-		}
-	}()
 	for {
-		time.Sleep(c.ReportInterval)
-
-		c.SendMetrics()
+		select {
+		case <-pollTicker.C:
+			c.UpdateMetrics()
+		case <-reportTicker.C:
+			c.SendMetrics()
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
