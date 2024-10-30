@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"strconv"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
@@ -25,17 +24,6 @@ func New(storage Storage, logger zerolog.Logger, conf config.Config) *service {
 			srv.log.Error().Msg(err.Error())
 		}
 	}
-	go func() {
-		for {
-			time.Sleep(conf.StoreInterval)
-
-			err := srv.StoreMetrics()
-			if err != nil {
-				srv.log.Error().Msg(err.Error())
-			}
-		}
-	}()
-
 	return srv
 }
 
