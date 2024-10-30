@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"html/template"
@@ -124,7 +125,6 @@ func (s *storage) RestoreMetrics() error {
 	if err != nil {
 		return err
 	}
-
 	s.metrics = restoredMetrics
 	return nil
 }
@@ -136,14 +136,10 @@ func (s *storage) StoreMetrics() error {
 	}
 	defer file.Close()
 
-	dataMetricsJSON, err := json.Marshal(s.metrics)
-	if err != nil {
+	writer := bufio.NewWriter(file)
+	encoder := json.NewEncoder(writer)
+	if err = encoder.Encode(s.metrics); err != nil {
 		return err
 	}
-	_, err = file.Write(dataMetricsJSON)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return writer.Flush()
 }

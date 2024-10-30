@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -22,7 +23,7 @@ func (a *api) GetMetric(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
 
-	res.Header().Add("Content-Type", "text/plain")
+	res.Header().Add(headers.ContentType, "text/plain")
 	res.Write([]byte(mval))
 }
 
@@ -51,7 +52,7 @@ func (a *api) GetMetricsHTMLTable(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusInternalServerError)
 	}
 
-	res.Header().Add("Content-Type", "text/html; charset=utf-8")
+	res.Header().Add(headers.ContentType, "text/html; charset=utf-8")
 	res.WriteHeader(http.StatusOK)
 	res.Write(table)
 }
@@ -70,7 +71,7 @@ func (a *api) GetJSONMetric(res http.ResponseWriter, req *http.Request) {
 		http.Error(res, err.Error(), http.StatusNotFound)
 	}
 
-	res.Header().Add("Content-Type", "application/json")
+	res.Header().Add(headers.ContentType, "application/json")
 	res.WriteHeader(http.StatusOK)
 	res.Write(metric)
 }
@@ -91,7 +92,7 @@ func (a *api) UpdateJSONMetric(res http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	res.Header().Add("Content-Type", "application/json")
+	res.Header().Add(headers.ContentType, "application/json")
 	res.WriteHeader(http.StatusOK)
 	res.Write(metric)
 }

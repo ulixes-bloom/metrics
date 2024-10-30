@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
 
@@ -212,8 +213,8 @@ func TestGzipCompression(t *testing.T) {
 
 			// create request
 			req, err := http.NewRequest(test.args.method, ts.URL+test.args.url, bytes.NewReader(test.args.body))
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Accept-Encoding", "gzip")
+			req.Header.Set(headers.ContentType, "application/json")
+			req.Header.Set(headers.AcceptEncoding, "gzip")
 			require.NoError(t, err)
 
 			// do request

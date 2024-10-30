@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/compress"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 )
 
 func (a *api) MiddlewareLogging(next http.Handler) http.Handler {
@@ -30,14 +31,14 @@ func (a *api) MiddlewareCompressing(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w
 
-		acceptEncoding := r.Header.Get("Accept-Encoding")
+		acceptEncoding := r.Header.Get(headers.AcceptEncoding)
 		if strings.Contains(acceptEncoding, "gzip") {
 			cw := compress.NewGzipWriter(w)
 			ow = cw
 			defer cw.Close()
 		}
 
-		contentEncoding := r.Header.Get("Content-Encoding")
+		contentEncoding := r.Header.Get(headers.ContentEncoding)
 		sendsGzip := strings.Contains(contentEncoding, "gzip")
 		if sendsGzip {
 			cr, err := compress.NewGzipReader(r.Body)

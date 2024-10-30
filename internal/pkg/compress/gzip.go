@@ -4,6 +4,8 @@ import (
 	"compress/gzip"
 	"io"
 	"net/http"
+
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 )
 
 type GzipWriter struct {
@@ -28,7 +30,7 @@ func (gw *GzipWriter) Write(p []byte) (int, error) {
 
 func (gw *GzipWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
-		gw.w.Header().Add("Content-Encoding", "gzip")
+		gw.w.Header().Add(headers.ContentEncoding, "gzip")
 	}
 	gw.w.WriteHeader(statusCode)
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -82,9 +83,9 @@ func (c *client) SendMetric(m metrics.Metric) {
 	if err != nil {
 		return
 	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Accept-Encoding", "gzip")
-	req.Header.Add("Content-Encoding", "gzip")
+	req.Header.Add(headers.ContentType, "application/json")
+	req.Header.Add(headers.AcceptEncoding, "gzip")
+	req.Header.Add(headers.ContentEncoding, "gzip")
 
 	client := &http.Client{}
 	res, err := client.Do(req)
