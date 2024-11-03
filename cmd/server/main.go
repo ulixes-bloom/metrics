@@ -1,15 +1,18 @@
 package main
 
 import (
-	"github.com/rs/zerolog/log"
+	"context"
+	"os"
+	"os/signal"
+
 	"github.com/ulixes-bloom/ya-metrics/internal/server/api"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
 
 func main() {
-	conf := parseConfig()
+	conf := config.Parse()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer stop()
 
-	err := api.Run(conf.RunAddr)
-	if err != nil {
-		log.Fatal().Msg(err.Error())
-	}
+	api.New(conf).Run(ctx)
 }
