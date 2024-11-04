@@ -96,3 +96,14 @@ func (a *api) UpdateJSONMetric(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 	res.Write(metric)
 }
+
+func (a *api) PingDB(res http.ResponseWriter, req *http.Request) {
+	err := a.service.PingDB(a.config.DatabaseDSN)
+	if err != nil {
+		a.log.Error().Msg(err.Error())
+		res.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	res.WriteHeader(http.StatusOK)
+}
