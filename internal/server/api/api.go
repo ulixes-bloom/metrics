@@ -67,6 +67,7 @@ func (a *api) newRouter() *chi.Mux {
 	r.Use(a.MiddlewareLogging)
 	r.Use(a.MiddlewareCompressing)
 	r.Get("/", a.GetMetricsHTMLTable)
+	r.Get("/ping", a.PingDB)
 	r.Get("/value/{mtype}/{mname}", a.GetMetric)
 	r.Post("/update/{mtype}/{mname}/{mval}", a.UpdateMetric)
 	r.Post("/value/", a.GetJSONMetric)

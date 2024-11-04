@@ -8,6 +8,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/psql"
 )
 
 type service struct {
@@ -109,5 +110,14 @@ func (s *service) StoreMetrics() error {
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func (s *service) PingDB(dsn string) error {
+	err := psql.PingDB(dsn)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

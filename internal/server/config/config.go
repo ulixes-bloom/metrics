@@ -13,6 +13,7 @@ type Config struct {
 	StoreInterval   time.Duration `env:"STORE_INTERVAL"`
 	FileStoragePath string        `env:"FILE_STORAGE_PATH"`
 	Restore         bool          `env:"RESTORE"`
+	DatabaseDSN     string        `env:"DATABASE_DSN"`
 }
 
 func Parse() (conf Config) {
@@ -21,8 +22,9 @@ func Parse() (conf Config) {
 	flag.DurationVar(&conf.StoreInterval, "i", 300*time.Second, "store interval")
 	flag.StringVar(&conf.FileStoragePath, "f", "metrics_store.txt", "file storage path")
 	flag.BoolVar(&conf.Restore, "r", true, "to restore metrics data")
-	flag.Parse()
+	flag.StringVar(&conf.DatabaseDSN, "d", "", "Postgresql data source name")
 
+	flag.Parse()
 	env.Parse(&conf)
 	return
 }
