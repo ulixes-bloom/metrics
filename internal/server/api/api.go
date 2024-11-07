@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
@@ -13,53 +12,55 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/pg"
 )
 
 type api struct {
 	service Service
-	config  config.Config
+	conf    config.Config
 	log     zerolog.Logger
 	router  *chi.Mux
 }
 
 func New(conf config.Config) *api {
+	// Инициализация логгера
 	logger, err := logger.Initialize(conf.LogLvl, os.Stdout)
 	if err != nil {
 		log.Fatal(err)
 	}
-	st := memory.NewStorage(conf.FileStoragePath)
-	srv := service.New(st, logger, conf)
 
+	// Инициализация хранилища метрик
+	var storage service.Storage
+	if conf.DatabaseDSN != "" {
+		ps, err := pg.NewStorage(conf.DatabaseDSN)
+		if err != nil {
+			log.Fatal(err)
+		}
+		storage = ps
+	} else {
+		storage = memory.NewStorage(logger, conf)
+	}
+
+	srv := service.New(storage, logger, conf)
 	newAPI := api{
 		service: srv,
 		log:     logger,
-		config:  conf,
+		conf:    conf,
 	}
 	newAPI.router = newAPI.newRouter()
-
 	return &newAPI
 }
 
 func (a *api) Run(ctx context.Context) {
 	go func() {
-		err := http.ListenAndServe(a.config.RunAddr, a.router)
+		err := http.ListenAndServe(a.conf.RunAddr, a.router)
 		if err != nil {
 			a.log.Fatal().Msg(err.Error())
 		}
 	}()
 
-	storeTicker := time.NewTicker(a.config.StoreInterval)
-	defer storeTicker.Stop()
-
-	for {
-		select {
-		case <-storeTicker.C:
-			a.service.StoreMetrics()
-		case <-ctx.Done():
-			a.service.ShutDown()
-			return
-		}
-	}
+	<-ctx.Done()
+	a.service.Shutdown()
 }
 
 func (a *api) newRouter() *chi.Mux {

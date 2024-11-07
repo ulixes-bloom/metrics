@@ -60,3 +60,23 @@ var GaugeMetrics = []string{
 	"TotalAlloc",
 	"RandomValue",
 }
+
+const HTMLTemplate = `<html>
+	<head>
+		<title></title>
+	</head>
+	<body>
+		<table>
+			<tr>
+				<th>Метрика</th>
+				<th>Значение</th>
+			</tr>
+			{{range $key, $value := .}}
+			<tr>
+				<td>{{$key}}</td>
+				<td>{{$value}}</td>
+			</tr>
+			{{end}}
+		</table>
+	</body>
+</html>`

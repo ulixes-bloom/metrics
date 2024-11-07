@@ -2,48 +2,32 @@ package memory
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
-	"html/template"
 	"os"
-	"strconv"
+	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
 
-const HTMLTemplate = `<html>
-	<head>
-    	<title></title>
-    </head>
-	<body>
-		<table>
-			<tr>
-				<th>Метрика</th>
-				<th>Значение</th>
-			</tr>
-			{{range $key, $value := .}}
-			<tr>
-				<td>{{$key}}</td>
-				<td>{{$value}}</td>
-			</tr>
-			{{end}}
-		</table>
-	</body>
-</html>`
-
-type storage struct {
-	metrics       map[string]metrics.Metric
-	storeFilePath string
+type memstorage struct {
+	metrics map[string]metrics.Metric
+	log     zerolog.Logger
+	conf    config.Config
 }
 
-func NewStorage(storeFilePath string) *storage {
-	s := storage{storeFilePath: storeFilePath}
-	s.metrics = make(map[string]metrics.Metric,
+func NewStorage(logger zerolog.Logger, conf config.Config) *memstorage {
+	ms := memstorage{
+		log:  logger,
+		conf: conf,
+	}
+	ms.metrics = make(map[string]metrics.Metric,
 		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
-		s.metrics[g] = metrics.Metric{
+		ms.metrics[g] = metrics.Metric{
 			ID:    g,
 			MType: metrics.Gauge,
 			Value: &zeroVal,
@@ -51,28 +35,28 @@ func NewStorage(storeFilePath string) *storage {
 	}
 	for _, c := range metrics.CounterMetrics {
 		zeroVal := int64(0)
-		s.metrics[c] = metrics.Metric{
+		ms.metrics[c] = metrics.Metric{
 			ID:    c,
 			MType: metrics.Counter,
 			Delta: &zeroVal,
 		}
 	}
-	return &s
+	return &ms
 }
 
-func (s *storage) Add(metric metrics.Metric) (metrics.Metric, error) {
+func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	switch metric.MType {
 	case metrics.Counter:
-		cur, ok := s.metrics[metric.ID]
+		cur, ok := ms.metrics[metric.ID]
 		if ok {
 			newDelta := (*metric.Delta + *cur.Delta)
 			metric.Delta = &newDelta
-			s.metrics[metric.ID] = metric
+			ms.metrics[metric.ID] = metric
 		} else {
-			s.metrics[metric.ID] = metric
+			ms.metrics[metric.ID] = metric
 		}
 	case metrics.Gauge:
-		s.metrics[metric.ID] = metric
+		ms.metrics[metric.ID] = metric
 	default:
 		return metric, errors.ErrMetricTypeNotImplemented
 	}
@@ -80,42 +64,48 @@ func (s *storage) Add(metric metrics.Metric) (metrics.Metric, error) {
 	return metric, nil
 }
 
-func (s *storage) Get(name string) (metrics.Metric, bool) {
-	metric, ok := s.metrics[name]
+func (ms *memstorage) Get(name string) (metrics.Metric, bool) {
+	metric, ok := ms.metrics[name]
 	return metric, ok
 }
 
-func (s *storage) All() map[string]string {
-	res := make(map[string]string)
-	for k, v := range s.metrics {
-		switch v.MType {
-		case metrics.Counter:
-			res[k] = strconv.FormatInt(*v.Delta, 10)
-		case metrics.Gauge:
-			res[k] = strconv.FormatFloat(*v.Value, 'f', -1, 64)
+func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
+	allMetrics := make([]metrics.Metric, 0)
+	for _, m := range ms.metrics {
+		allMetrics = append(allMetrics, m)
+	}
+	return allMetrics, nil
+}
+
+func (ms *memstorage) Setup() error {
+	err := ms.restoreMetricsFromFile()
+	ms.async()
+	return err
+}
+
+func (ms *memstorage) Shutdown() error {
+	return ms.saveMetricsToFile()
+}
+
+func (ms *memstorage) async() {
+	if ms.conf.StoreInterval == 0 {
+		return
+	}
+	storeTicker := time.NewTicker(ms.conf.StoreInterval)
+
+	go func() {
+		for {
+			<-storeTicker.C
+
+			if err := ms.saveMetricsToFile(); err != nil {
+				ms.log.Err(err)
+			}
 		}
-	}
-	return res
+	}()
 }
 
-func (s *storage) HTMLTable() ([]byte, error) {
-	var wr bytes.Buffer
-	tmpl, err := template.New("tmpl").Parse(HTMLTemplate)
-	if err != nil {
-		return nil, err
-	}
-
-	err = tmpl.Execute(&wr, s.All())
-	if err != nil {
-		return nil, err
-	}
-
-	res := wr.Bytes()
-	return res, nil
-}
-
-func (s *storage) RestoreMetrics() error {
-	file, err := os.OpenFile(s.storeFilePath, os.O_RDONLY, 0644)
+func (ms *memstorage) restoreMetricsFromFile() error {
+	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return err
 	}
@@ -125,12 +115,12 @@ func (s *storage) RestoreMetrics() error {
 	if err != nil {
 		return err
 	}
-	s.metrics = restoredMetrics
+	ms.metrics = restoredMetrics
 	return nil
 }
 
-func (s *storage) StoreMetrics() error {
-	file, err := os.OpenFile(s.storeFilePath, os.O_WRONLY|os.O_CREATE, 0644)
+func (ms *memstorage) saveMetricsToFile() error {
+	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return err
 	}
@@ -138,7 +128,7 @@ func (s *storage) StoreMetrics() error {
 
 	writer := bufio.NewWriter(file)
 	encoder := json.NewEncoder(writer)
-	if err = encoder.Encode(s.metrics); err != nil {
+	if err = encoder.Encode(ms.metrics); err != nil {
 		return err
 	}
 	return writer.Flush()
