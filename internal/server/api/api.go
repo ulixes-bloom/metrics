@@ -73,5 +73,6 @@ func (a *api) newRouter() *chi.Mux {
 	r.Post("/update/{mtype}/{mname}/{mval}", a.UpdateMetric)
 	r.Post("/value/", a.GetJSONMetric)
 	r.Post("/update/", a.UpdateJSONMetric)
+	r.Post("/updates/", a.UpdateMetrics)
 	return r
 }

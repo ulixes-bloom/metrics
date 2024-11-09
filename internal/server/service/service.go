@@ -104,6 +104,17 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 	return nil
 }
 
+func (s *service) UpdateMetrics(metricsSlice []metrics.Metric) error {
+	for _, m := range metricsSlice {
+		_, err := s.UpdateJSONMetric(m)
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
 	val, ok := s.storage.Get(metric.ID)
 	if !ok {

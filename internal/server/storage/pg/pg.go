@@ -4,6 +4,7 @@ import (
 	"database/sql"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -18,7 +19,6 @@ func NewStorage(dsn string) (*pgstorage, error) {
 		return &newStorage, err
 	}
 	newStorage.db = db
-
 	return &newStorage, nil
 }
 
@@ -39,12 +39,55 @@ func (ps *pgstorage) PingDB() error {
 }
 
 func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
+	if metric.MType != metrics.Counter && metric.MType != metrics.Gauge {
+		return metric, errors.ErrMetricTypeNotImplemented
+	}
+
+	if metric.MType == metrics.Counter {
+		cur, ok := ps.Get(metric.ID)
+		if ok {
+			newDelta := (*metric.Delta + *cur.Delta)
+			metric.Delta = &newDelta
+		}
+	}
+
 	_, err := ps.db.Exec(setMetricQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 	if err != nil {
 		return metric, err
 	}
-
 	return metric, nil
+}
+
+func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
+	tx, err := ps.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(setMetricQuery)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range meticsSlice {
+		if m.MType != metrics.Counter && m.MType != metrics.Gauge {
+			return errors.ErrMetricTypeNotImplemented
+		}
+
+		if m.MType == metrics.Counter {
+			if cur, ok := ps.Get(m.ID); ok {
+				newDelta := (*m.Delta + *cur.Delta)
+				m.Delta = &newDelta
+			}
+		}
+
+		_, err := stmt.Exec(m.ID, m.MType, m.Delta, m.Value)
+		if err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func (ps *pgstorage) Get(name string) (val metrics.Metric, ok bool) {
@@ -53,7 +96,6 @@ func (ps *pgstorage) Get(name string) (val metrics.Metric, ok bool) {
 	if err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value); err != nil {
 		return metric, false
 	}
-
 	return metric, true
 }
 

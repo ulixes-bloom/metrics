@@ -60,15 +60,14 @@ func (c *client) UpdateMetrics() {
 }
 
 func (c *client) SendMetrics() {
+	metricsSlice := make([]metrics.Metric, 0)
 	for _, v := range c.Service.GetAll() {
-		c.SendMetric(v)
+		metricsSlice = append(metricsSlice, v)
 	}
-}
 
-func (c *client) SendMetric(m metrics.Metric) {
-	marshalled, err := json.Marshal(m)
+	marshalled, err := json.Marshal(metricsSlice)
 	if err != nil {
-		log.Fatalf("impossible to marshall metric: %s", err)
+		log.Fatalf("impossible to marshall metrics: %s", err)
 	}
 
 	buf := bytes.NewBuffer(nil)
@@ -82,7 +81,7 @@ func (c *client) SendMetric(m metrics.Metric) {
 		log.Fatalf("impossible to compress metric ussing gzip: %s", err)
 	}
 
-	url := fmt.Sprintf("%s/update/", c.ServerAddr)
+	url := fmt.Sprintf("%s/updates/", c.ServerAddr)
 	req, err := http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
 		return

@@ -36,11 +36,6 @@ func (s *storage) Add(metric metrics.Metric) error {
 	return nil
 }
 
-func (s *storage) Get(name string) (val metrics.Metric, ok bool) {
-	val, ok = s.metrics[name]
-	return
-}
-
 func (s *storage) GetAll() map[string]metrics.Metric {
 	return s.metrics
 }

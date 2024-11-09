@@ -21,5 +21,6 @@ type (
 	// Интерфейс для установки метрик
 	Setter interface {
 		Set(metric metrics.Metric) (metrics.Metric, error)
+		SetAll(meticsSlice []metrics.Metric) error
 	}
 )

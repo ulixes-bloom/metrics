@@ -45,6 +45,26 @@ func (a *api) UpdateMetric(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+func (a *api) UpdateMetrics(res http.ResponseWriter, req *http.Request) {
+	var m []metrics.Metric
+	dec := json.NewDecoder(req.Body)
+	if err := dec.Decode(&m); err != nil {
+		a.log.Error().Msg(err.Error())
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err := a.service.UpdateMetrics(m)
+	if err != nil {
+		a.log.Error().Msg(err.Error())
+		http.Error(res, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	res.Header().Add(headers.ContentType, "application/json")
+	res.WriteHeader(http.StatusOK)
+}
+
 func (a *api) GetMetricsHTMLTable(res http.ResponseWriter, req *http.Request) {
 	table, err := a.service.GetMetricsHTMLTable()
 	if err != nil {

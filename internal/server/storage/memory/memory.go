@@ -60,8 +60,16 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	default:
 		return metric, errors.ErrMetricTypeNotImplemented
 	}
-
 	return metric, nil
+}
+
+func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
+	for _, m := range meticsSlice {
+		if _, err := ms.Set(m); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ms *memstorage) Get(name string) (metrics.Metric, bool) {
