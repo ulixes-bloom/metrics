@@ -16,15 +16,29 @@ type Config struct {
 	DatabaseDSN     string        `env:"DATABASE_DSN"`
 }
 
-func Parse() (conf Config) {
-	flag.StringVar(&conf.RunAddr, "a", ":8080", "address and port to run server")
-	flag.StringVar(&conf.LogLvl, "l", "Info", "logging level")
-	flag.DurationVar(&conf.StoreInterval, "i", 300*time.Second, "store interval")
-	flag.StringVar(&conf.FileStoragePath, "f", "metrics_store.txt", "file storage path")
-	flag.BoolVar(&conf.Restore, "r", true, "to restore metrics data")
-	flag.StringVar(&conf.DatabaseDSN, "d", "", "Postgresql data source name")
+func Parse() *Config {
+	var conf Config
+	defaultValues := GetDefault()
+
+	flag.StringVar(&conf.RunAddr, "a", defaultValues.RunAddr, "address and port to run server")
+	flag.StringVar(&conf.LogLvl, "l", defaultValues.LogLvl, "logging level")
+	flag.DurationVar(&conf.StoreInterval, "i", defaultValues.StoreInterval, "store interval")
+	flag.StringVar(&conf.FileStoragePath, "f", defaultValues.FileStoragePath, "file storage path")
+	flag.BoolVar(&conf.Restore, "r", defaultValues.Restore, "to restore metrics data")
+	flag.StringVar(&conf.DatabaseDSN, "d", defaultValues.DatabaseDSN, "Postgresql data source name")
 
 	flag.Parse()
 	env.Parse(&conf)
-	return
+	return &conf
+}
+
+func GetDefault() (conf *Config) {
+	return &Config{
+		RunAddr:         ":8080",
+		LogLvl:          "Info",
+		StoreInterval:   300 * time.Second,
+		FileStoragePath: "metrics_store.txt",
+		Restore:         true,
+		DatabaseDSN:     "",
+	}
 }

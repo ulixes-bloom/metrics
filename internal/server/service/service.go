@@ -17,10 +17,10 @@ import (
 type service struct {
 	storage Storage
 	log     zerolog.Logger
-	conf    config.Config
+	conf    *config.Config
 }
 
-func New(storage Storage, logger zerolog.Logger, conf config.Config) *service {
+func New(storage Storage, logger zerolog.Logger, conf *config.Config) *service {
 	srv := &service{
 		storage: storage,
 		log:     logger,

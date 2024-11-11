@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
@@ -15,10 +16,10 @@ import (
 type memstorage struct {
 	metrics map[string]metrics.Metric
 	log     zerolog.Logger
-	conf    config.Config
+	conf    *config.Config
 }
 
-func NewStorage(logger zerolog.Logger, conf config.Config) *memstorage {
+func NewStorage(logger zerolog.Logger, conf *config.Config) *memstorage {
 	ms := memstorage{
 		log:  logger,
 		conf: conf,
@@ -60,6 +61,10 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	default:
 		return metric, metricerrors.ErrMetricTypeNotImplemented
 	}
+
+	if err := ms.sync(); err != nil {
+		return metric, err
+	}
 	return metric, nil
 }
 
@@ -68,6 +73,10 @@ func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
 		if _, err := ms.Set(m); err != nil {
 			return err
 		}
+	}
+
+	if err := ms.sync(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -95,6 +104,7 @@ func (ms *memstorage) Shutdown() error {
 	return ms.saveMetricsToFile()
 }
 
+// Асинхронная запись метрик в файл
 func (ms *memstorage) async() {
 	if ms.conf.StoreInterval == 0 {
 		return
@@ -112,6 +122,20 @@ func (ms *memstorage) async() {
 	}()
 }
 
+// Синхронная запись метрик в файл
+func (ms *memstorage) sync() error {
+	if ms.conf.StoreInterval == 0 {
+		err := ms.saveMetricsToFile()
+		if err != nil {
+			log.Error().Msg(err.Error())
+
+			return err
+		}
+	}
+	return nil
+}
+
+// Считывание значений метрик из файла в память
 func (ms *memstorage) restoreMetricsFromFile() error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -127,6 +151,7 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 	return nil
 }
 
+// Сохранение значений метрик из памяти в файл
 func (ms *memstorage) saveMetricsToFile() error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {

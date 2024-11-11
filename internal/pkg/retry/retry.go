@@ -20,7 +20,7 @@ func (e ErrorSlice) Error() string {
 		}
 	}
 
-	return fmt.Sprintf("Retry attempts failed:\n%s", strings.Join(logWithNumber, "\n"))
+	return fmt.Sprintf("Retry attempts failed: %s", strings.Join(logWithNumber, "|"))
 }
 
 func Do(retryableFunc RetryableFunc, shouldRetryFunc ShouldRetryFunc, attempts uint) error {

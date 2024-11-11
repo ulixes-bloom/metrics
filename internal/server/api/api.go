@@ -17,12 +17,12 @@ import (
 
 type api struct {
 	service Service
-	conf    config.Config
+	conf    *config.Config
 	log     zerolog.Logger
 	router  *chi.Mux
 }
 
-func New(conf config.Config) *api {
+func New(conf *config.Config) *api {
 	// Инициализация логгера
 	logger, err := logger.Initialize(conf.LogLvl, os.Stdout)
 	if err != nil {
