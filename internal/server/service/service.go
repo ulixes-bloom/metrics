@@ -7,8 +7,9 @@ import (
 	"strconv"
 
 	"github.com/rs/zerolog"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/retry"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/pg"
 )
@@ -67,17 +68,17 @@ func (s *service) GetMetric(mtype, mname string) ([]byte, error) {
 	case metrics.Gauge:
 		metric, ok := s.storage.Get(mname)
 		if !ok {
-			return []byte(""), errors.ErrMetricNotExists
+			return []byte(""), metricerrors.ErrMetricNotExists
 		}
 		mval = strconv.FormatFloat(*metric.Value, 'f', -1, 64)
 	case metrics.Counter:
 		metric, ok := s.storage.Get(mname)
 		if !ok {
-			return []byte(""), errors.ErrMetricNotExists
+			return []byte(""), metricerrors.ErrMetricNotExists
 		}
 		mval = strconv.FormatInt(*metric.Delta, 10)
 	default:
-		return []byte(""), errors.ErrMetricTypeNotImplemented
+		return []byte(""), metricerrors.ErrMetricTypeNotImplemented
 	}
 
 	return []byte(mval), nil
@@ -89,16 +90,16 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 		if val, err := strconv.ParseFloat(mval, 64); err == nil {
 			s.storage.Set(*metrics.NewGaugeMetric(mname, val))
 		} else {
-			return errors.ErrMetricValueNotValid
+			return metricerrors.ErrMetricValueNotValid
 		}
 	case metrics.Counter:
 		if val, err := strconv.ParseInt(mval, 10, 64); err == nil {
 			s.storage.Set(*metrics.NewCounterMetric(mname, val))
 		} else {
-			return errors.ErrMetricValueNotValid
+			return metricerrors.ErrMetricValueNotValid
 		}
 	default:
-		return errors.ErrMetricTypeNotImplemented
+		return metricerrors.ErrMetricTypeNotImplemented
 	}
 
 	return nil
@@ -118,7 +119,7 @@ func (s *service) UpdateMetrics(metricsSlice []metrics.Metric) error {
 func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
 	val, ok := s.storage.Get(metric.ID)
 	if !ok {
-		return []byte(""), errors.ErrMetricNotExists
+		return []byte(""), metricerrors.ErrMetricNotExists
 	}
 
 	return json.Marshal(val)
@@ -137,7 +138,7 @@ func (s *service) Shutdown() {
 }
 
 func (s *service) PingDB(dsn string) error {
-	err := pg.PingDB(dsn)
+	err := retry.Do(func() error { return pg.PingDB(dsn) }, pg.NeedToRetry(), 4)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
@@ -58,7 +58,7 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	case metrics.Gauge:
 		ms.metrics[metric.ID] = metric
 	default:
-		return metric, errors.ErrMetricTypeNotImplemented
+		return metric, metricerrors.ErrMetricTypeNotImplemented
 	}
 	return metric, nil
 }
