@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
+	"time"
 
 	"github.com/caarlos0/env"
 )
@@ -11,22 +12,38 @@ type Config struct {
 	ServerAddr     string `env:"ADDRESS"`
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
+	LogLvl         string `env:"LOGLVL"`
 }
 
-func Parse() (conf Config, err error) {
+func Parse() (*Config, error) {
+	var conf Config
+
 	flag.StringVar(&conf.ServerAddr, "a", "localhost:8080", "address and port of server")
 	flag.IntVar(&conf.ReportInterval, "r", 10, "metrics report interval")
 	flag.IntVar(&conf.PollInterval, "p", 2, "metrics update interval")
+	flag.StringVar(&conf.LogLvl, "l", "debug", "logging level")
 	flag.Parse()
 
 	env.Parse(&conf)
 
 	if conf.ReportInterval <= 0 {
-		err = errors.New("negative report interval")
+		return nil, errors.New("negative report interval")
 	}
 	if conf.PollInterval <= 0 {
-		err = errors.New("negative poll interval")
+		return nil, errors.New("negative poll interval")
 	}
 
-	return
+	return &conf, nil
+}
+
+func (c *Config) GetNormilizedServerAddr() string {
+	return "http://" + c.ServerAddr
+}
+
+func (c *Config) GetReportIntervalDuration() time.Duration {
+	return time.Duration(c.ReportInterval) * time.Second
+}
+
+func (c *Config) GetPollIntervalDuration() time.Duration {
+	return time.Duration(c.PollInterval) * time.Second
 }

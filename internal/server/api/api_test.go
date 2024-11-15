@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
 )
 
 var Config = config.GetDefault()
@@ -36,7 +37,9 @@ func TestUpdateMetric(t *testing.T) {
 		method       string
 		expectedCode int
 	}
-	ts := httptest.NewServer(New(Config).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -109,7 +112,9 @@ func TestUpdateJSONMetric(t *testing.T) {
 		expectedCode int
 		body         []byte
 	}
-	ts := httptest.NewServer(New(Config).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -185,7 +190,9 @@ func TestGzipCompression(t *testing.T) {
 		expectedCode int
 		body         []byte
 	}
-	ts := httptest.NewServer(New(Config).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {

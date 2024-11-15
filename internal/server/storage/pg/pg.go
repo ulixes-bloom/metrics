@@ -19,15 +19,29 @@ func NewStorage(dsn string) (*pgstorage, error) {
 	newStorage := pgstorage{}
 	db, err := sql.Open("pgx", dsn)
 	if err != nil {
-		return &newStorage, err
+		return nil, err
 	}
 	newStorage.db = db
+
+	err = newStorage.PingDB()
+	if err != nil {
+		return nil, err
+	}
+
+	err = newStorage.Setup()
+	if err != nil {
+		return nil, err
+	}
+
 	return &newStorage, nil
 }
 
 func (ps *pgstorage) Setup() error {
 	_, err := ps.db.Exec(createTableQuery)
-	return err
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (ps *pgstorage) Shutdown() error {
@@ -46,14 +60,6 @@ func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 		return metric, metricerrors.ErrMetricTypeNotImplemented
 	}
 
-	if metric.MType == metrics.Counter {
-		cur, ok := ps.Get(metric.ID)
-		if ok {
-			newDelta := (*metric.Delta + *cur.Delta)
-			metric.Delta = &newDelta
-		}
-	}
-
 	_, err := ps.db.Exec(setMetricQuery, metric.ID, metric.MType, metric.Delta, metric.Value)
 	if err != nil {
 		return metric, err
@@ -62,6 +68,10 @@ func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 }
 
 func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
+	if len(meticsSlice) == 0 {
+		return nil
+	}
+
 	tx, err := ps.db.Begin()
 	if err != nil {
 		return err
@@ -77,14 +87,6 @@ func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
 		if m.MType != metrics.Counter && m.MType != metrics.Gauge {
 			return metricerrors.ErrMetricTypeNotImplemented
 		}
-
-		if m.MType == metrics.Counter {
-			if cur, ok := ps.Get(m.ID); ok {
-				newDelta := (*m.Delta + *cur.Delta)
-				m.Delta = &newDelta
-			}
-		}
-
 		_, err := stmt.Exec(m.ID, m.MType, m.Delta, m.Value)
 		if err != nil {
 			return err
@@ -93,32 +95,32 @@ func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
 	return tx.Commit()
 }
 
-func (ps *pgstorage) Get(name string) (val metrics.Metric, ok bool) {
+func (ps *pgstorage) Get(name string) (val metrics.Metric, ok error) {
 	var metric metrics.Metric
 	row := ps.db.QueryRow(getMetricQuery, name)
 	if err := row.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value); err != nil {
-		return metric, false
+		return metric, err
 	}
-	return metric, true
+	return metric, nil
 }
 
 func (ps *pgstorage) GetAll() ([]metrics.Metric, error) {
-	allMetrics := make([]metrics.Metric, 0)
 	rows, err := ps.db.Query(getAllMetricsQuery)
 	if err != nil {
-		return allMetrics, err
+		return nil, err
 	}
 	defer rows.Close()
 
+	allMetrics := []metrics.Metric{}
 	for rows.Next() {
 		var metric metrics.Metric
 		if err := rows.Scan(&metric.ID, &metric.MType, &metric.Delta, &metric.Value); err != nil {
-			return allMetrics, err
+			return nil, err
 		}
 		allMetrics = append(allMetrics, metric)
 	}
 	if err := rows.Err(); err != nil {
-		return allMetrics, err
+		return nil, err
 	}
 	return allMetrics, nil
 }

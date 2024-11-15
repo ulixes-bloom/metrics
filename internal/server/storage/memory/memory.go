@@ -3,10 +3,11 @@ package memory
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
@@ -15,17 +16,14 @@ import (
 
 type memstorage struct {
 	metrics map[string]metrics.Metric
-	log     zerolog.Logger
 	conf    *config.Config
 }
 
-func NewStorage(logger zerolog.Logger, conf *config.Config) *memstorage {
+func NewStorage(conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
-		log:  logger,
 		conf: conf,
 	}
-	ms.metrics = make(map[string]metrics.Metric,
-		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
+	ms.metrics = map[string]metrics.Metric{}
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
 		ms.metrics[g] = metrics.Metric{
@@ -42,7 +40,13 @@ func NewStorage(logger zerolog.Logger, conf *config.Config) *memstorage {
 			Delta: &zeroVal,
 		}
 	}
-	return &ms
+
+	err := ms.Setup()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ms, nil
 }
 
 func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
@@ -50,7 +54,7 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	case metrics.Counter:
 		cur, ok := ms.metrics[metric.ID]
 		if ok {
-			newDelta := (*metric.Delta + *cur.Delta)
+			newDelta := (metric.GetDelta() + cur.GetDelta())
 			metric.Delta = &newDelta
 			ms.metrics[metric.ID] = metric
 		} else {
@@ -81,13 +85,16 @@ func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
 	return nil
 }
 
-func (ms *memstorage) Get(name string) (metrics.Metric, bool) {
+func (ms *memstorage) Get(name string) (metrics.Metric, error) {
 	metric, ok := ms.metrics[name]
-	return metric, ok
+	if !ok {
+		return metric, metricerrors.ErrMetricNotExists
+	}
+	return metric, nil
 }
 
 func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
-	allMetrics := make([]metrics.Metric, 0)
+	allMetrics := []metrics.Metric{}
 	for _, m := range ms.metrics {
 		allMetrics = append(allMetrics, m)
 	}
@@ -116,7 +123,7 @@ func (ms *memstorage) async() {
 			<-storeTicker.C
 
 			if err := ms.saveMetricsToFile(); err != nil {
-				ms.log.Err(err)
+				log.Err(err)
 			}
 		}
 	}()
@@ -137,11 +144,15 @@ func (ms *memstorage) sync() error {
 
 // Считывание значений метрик из файла в память
 func (ms *memstorage) restoreMetricsFromFile() error {
-	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
-	if err != nil {
-		return err
+	_, error := os.Stat(ms.conf.FileStoragePath)
+	if errors.Is(error, os.ErrNotExist) {
+		return nil
 	}
 
+	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("file storage path: '%s', %w", ms.conf.FileStoragePath, err)
+	}
 	var restoredMetrics map[string]metrics.Metric
 	err = json.NewDecoder(file).Decode(&restoredMetrics)
 	if err != nil {
@@ -155,7 +166,7 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 func (ms *memstorage) saveMetricsToFile() error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("file storage path: '%s', %w", ms.conf.FileStoragePath, err)
 	}
 	defer file.Close()
 

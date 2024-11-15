@@ -7,20 +7,34 @@ type Metric struct {
 	Value *float64 `json:"value,omitempty"` // значение метрики в случае передачи gauge
 }
 
-func NewGaugeMetric(id string, val float64) *Metric {
-	return &Metric{
+func NewGaugeMetric(id string, val float64) Metric {
+	return Metric{
 		ID:    id,
 		MType: Gauge,
 		Value: &val,
 	}
 }
 
-func NewCounterMetric(id string, delta int64) *Metric {
-	return &Metric{
+func NewCounterMetric(id string, delta int64) Metric {
+	return Metric{
 		ID:    id,
 		MType: Counter,
 		Delta: &delta,
 	}
+}
+
+func (m *Metric) GetDelta() int64 {
+	if m.Delta == nil {
+		return 0
+	}
+	return *m.Delta
+}
+
+func (m *Metric) GetValue() float64 {
+	if m.Value == nil {
+		return 0
+	}
+	return *m.Value
 }
 
 const Counter = "counter"

@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"strconv"
 
-	"github.com/rs/zerolog"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/retry"
@@ -16,17 +15,14 @@ import (
 
 type service struct {
 	storage Storage
-	log     zerolog.Logger
 	conf    *config.Config
 }
 
-func New(storage Storage, logger zerolog.Logger, conf *config.Config) *service {
+func New(storage Storage, conf *config.Config) *service {
 	srv := &service{
 		storage: storage,
-		log:     logger,
 		conf:    conf,
 	}
-	storage.Setup()
 
 	return srv
 }
@@ -41,14 +37,14 @@ func (s *service) GetMetricsHTMLTable() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	metricsMap := make(map[string]string)
+	metricsMap := map[string]string{}
 
 	for _, m := range allMetrics {
 		switch m.MType {
 		case metrics.Counter:
-			metricsMap[m.ID] = strconv.FormatInt(*m.Delta, 10)
+			metricsMap[m.ID] = strconv.FormatInt(m.GetDelta(), 10)
 		case metrics.Gauge:
-			metricsMap[m.ID] = strconv.FormatFloat(*m.Value, 'f', -1, 64)
+			metricsMap[m.ID] = strconv.FormatFloat(m.GetValue(), 'f', -1, 64)
 		}
 	}
 
@@ -66,19 +62,19 @@ func (s *service) GetMetric(mtype, mname string) ([]byte, error) {
 
 	switch mtype {
 	case metrics.Gauge:
-		metric, ok := s.storage.Get(mname)
-		if !ok {
-			return []byte(""), metricerrors.ErrMetricNotExists
+		metric, err := s.storage.Get(mname)
+		if err != nil {
+			return nil, err
 		}
-		mval = strconv.FormatFloat(*metric.Value, 'f', -1, 64)
+		mval = strconv.FormatFloat(metric.GetValue(), 'f', -1, 64)
 	case metrics.Counter:
-		metric, ok := s.storage.Get(mname)
-		if !ok {
-			return []byte(""), metricerrors.ErrMetricNotExists
+		metric, err := s.storage.Get(mname)
+		if err != nil {
+			return nil, err
 		}
-		mval = strconv.FormatInt(*metric.Delta, 10)
+		mval = strconv.FormatInt(metric.GetDelta(), 10)
 	default:
-		return []byte(""), metricerrors.ErrMetricTypeNotImplemented
+		return nil, metricerrors.ErrMetricTypeNotImplemented
 	}
 
 	return []byte(mval), nil
@@ -88,13 +84,19 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 	switch mtype {
 	case metrics.Gauge:
 		if val, err := strconv.ParseFloat(mval, 64); err == nil {
-			s.storage.Set(*metrics.NewGaugeMetric(mname, val))
+			_, err := s.storage.Set(metrics.NewGaugeMetric(mname, val))
+			if err != nil {
+				return err
+			}
 		} else {
 			return metricerrors.ErrMetricValueNotValid
 		}
 	case metrics.Counter:
 		if val, err := strconv.ParseInt(mval, 10, 64); err == nil {
-			s.storage.Set(*metrics.NewCounterMetric(mname, val))
+			_, err := s.storage.Set(metrics.NewCounterMetric(mname, val))
+			if err != nil {
+				return err
+			}
 		} else {
 			return metricerrors.ErrMetricValueNotValid
 		}
@@ -117,9 +119,9 @@ func (s *service) UpdateMetrics(metricsSlice []metrics.Metric) error {
 }
 
 func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
-	val, ok := s.storage.Get(metric.ID)
-	if !ok {
-		return []byte(""), metricerrors.ErrMetricNotExists
+	val, err := s.storage.Get(metric.ID)
+	if err != nil {
+		return nil, err
 	}
 
 	return json.Marshal(val)
@@ -128,13 +130,13 @@ func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
 func (s *service) UpdateJSONMetric(metric metrics.Metric) ([]byte, error) {
 	metric, err := s.storage.Set(metric)
 	if err != nil {
-		return []byte(""), err
+		return nil, err
 	}
 	return json.Marshal(metric)
 }
 
-func (s *service) Shutdown() {
-	s.storage.Shutdown()
+func (s *service) Shutdown() error {
+	return s.storage.Shutdown()
 }
 
 func (s *service) PingDB(dsn string) error {

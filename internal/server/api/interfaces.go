@@ -10,5 +10,5 @@ type Service interface {
 	GetJSONMetric(metric metrics.Metric) ([]byte, error)
 	UpdateJSONMetric(metric metrics.Metric) ([]byte, error)
 	PingDB(dsn string) error
-	Shutdown()
+	Shutdown() error
 }

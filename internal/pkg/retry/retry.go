@@ -13,10 +13,10 @@ type ShouldRetryFunc func(error) bool
 type ErrorSlice []error
 
 func (e ErrorSlice) Error() string {
-	logWithNumber := make([]string, len(e))
+	logWithNumber := []string{}
 	for i, l := range e {
 		if l != nil {
-			logWithNumber[i] = fmt.Sprintf("#%d: %s", i+1, l.Error())
+			logWithNumber = append(logWithNumber, fmt.Sprintf("#%d: %s", i+1, l.Error()))
 		}
 	}
 
@@ -38,16 +38,16 @@ func Do(retryableFunc RetryableFunc, shouldRetryFunc ShouldRetryFunc, attempts u
 	curAttempt := uint(2)
 
 	for shouldRetry && curAttempt != attempts {
-		time.Sleep(*attemptTimeout)
+		time.Sleep(attemptTimeout)
 
 		err = retryableFunc()
 		if err != nil {
 			errorSlice = append(errorSlice, err)
 
 			if shouldRetryFunc(err) {
-				attemptTimeout = nextAttemptTimeout(attemptTimeout)
+				attemptTimeout = nextAttemptTimeout(&attemptTimeout)
 			} else {
-				return errorSlice
+				shouldRetry = false
 			}
 		}
 
@@ -57,11 +57,11 @@ func Do(retryableFunc RetryableFunc, shouldRetryFunc ShouldRetryFunc, attempts u
 	return errorSlice
 }
 
-func nextAttemptTimeout(prevT *time.Duration) *time.Duration {
+func nextAttemptTimeout(prevT *time.Duration) time.Duration {
 	if prevT == nil {
 		t := time.Second
-		return &t
+		return t
 	}
 	newT := *prevT + 2*time.Second
-	return &newT
+	return newT
 }

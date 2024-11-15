@@ -14,7 +14,7 @@ const (
 			(id, type, delta, value)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (id) DO UPDATE SET
-			id=$1, type=$2, delta=$3, value=$4`
+			id=$1, type=$2, delta=metrics.delta+$3, value=$4`
 
 	getAllMetricsQuery = `SELECT
 			id,

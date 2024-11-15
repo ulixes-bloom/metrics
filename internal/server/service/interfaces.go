@@ -8,13 +8,12 @@ type (
 		Getter
 		Setter
 
-		Setup() error
 		Shutdown() error
 	}
 
 	// Интерфейс для получения метрик
 	Getter interface {
-		Get(name string) (val metrics.Metric, ok bool)
+		Get(name string) (val metrics.Metric, err error)
 		GetAll() ([]metrics.Metric, error)
 	}
 
