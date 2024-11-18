@@ -12,7 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
 )
+
+var Config = config.GetDefault()
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body []byte) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, bytes.NewReader(body))
@@ -34,7 +37,9 @@ func TestUpdateMetric(t *testing.T) {
 		method       string
 		expectedCode int
 	}
-	ts := httptest.NewServer(New(config.Config{}).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -107,7 +112,9 @@ func TestUpdateJSONMetric(t *testing.T) {
 		expectedCode int
 		body         []byte
 	}
-	ts := httptest.NewServer(New(config.Config{}).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -120,7 +127,7 @@ func TestUpdateJSONMetric(t *testing.T) {
 				url:          "/update/",
 				method:       http.MethodPost,
 				expectedCode: http.StatusOK,
-				body:         []byte(`{"id":"gaugeeee","type":"gauge","value":13}`),
+				body:         []byte(`{"id":"SomeGauge","type":"gauge","value":13}`),
 			},
 		},
 		{
@@ -129,7 +136,7 @@ func TestUpdateJSONMetric(t *testing.T) {
 				url:          "/update/",
 				method:       http.MethodPost,
 				expectedCode: http.StatusOK,
-				body:         []byte(`{"id":"counterrr","type":"counter","delta":13}`),
+				body:         []byte(`{"id":"SomeCounter","type":"counter","delta":13}`),
 			},
 		},
 		{
@@ -183,7 +190,9 @@ func TestGzipCompression(t *testing.T) {
 		expectedCode int
 		body         []byte
 	}
-	ts := httptest.NewServer(New(config.Config{}).router)
+	ms, _ := memory.NewStorage(Config)
+	newServer := New(Config, ms)
+	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
 
 	tests := []struct {
@@ -196,7 +205,7 @@ func TestGzipCompression(t *testing.T) {
 				url:          "/update/",
 				method:       http.MethodPost,
 				expectedCode: http.StatusOK,
-				body:         []byte(`{"id":"Getsetzip","type":"gauge","value":13}`),
+				body:         []byte(`{"id":"SomeGauge","type":"gauge","value":13}`),
 			},
 		},
 	}

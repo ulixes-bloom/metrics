@@ -10,9 +10,7 @@ type storage struct {
 
 func NewStorage() *storage {
 	m := storage{}
-	m.metrics = make(map[string]metrics.Metric,
-		len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
-
+	m.metrics = map[string]metrics.Metric{}
 	return &m
 }
 
@@ -21,7 +19,7 @@ func (s *storage) Add(metric metrics.Metric) error {
 	case metrics.Counter:
 		cur, ok := s.metrics[metric.ID]
 		if ok {
-			newDelta := (*metric.Delta + *cur.Delta)
+			newDelta := (metric.GetDelta() + cur.GetDelta())
 			metric.Delta = &newDelta
 			s.metrics[metric.ID] = metric
 		} else {
@@ -34,11 +32,6 @@ func (s *storage) Add(metric metrics.Metric) error {
 	}
 
 	return nil
-}
-
-func (s *storage) Get(name string) (val metrics.Metric, ok bool) {
-	val, ok = s.metrics[name]
-	return
 }
 
 func (s *storage) GetAll() map[string]metrics.Metric {

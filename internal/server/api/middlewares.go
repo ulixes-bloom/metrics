@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/compress"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 )
@@ -19,7 +20,7 @@ func (a *api) MiddlewareLogging(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 
 		duration := time.Since(start)
-		a.log.Debug().
+		log.Debug().
 			Str("uri", uri).
 			Str("method", method).
 			Str("duration", duration.String()).

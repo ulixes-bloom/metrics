@@ -5,41 +5,39 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 
 	"net/http"
 	"time"
 
+	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
 type client struct {
-	Service        Service
-	PollInterval   time.Duration
-	ReportInterval time.Duration
-	ServerAddr     string
+	service Service
+	conf    *config.Config
 }
 
-func New(conf config.Config) *client {
+func New(conf *config.Config) *client {
 	ms := memory.NewStorage()
 	s := service.New(ms)
 
 	return &client{
-		Service:        s,
-		PollInterval:   time.Duration(conf.PollInterval) * time.Second,
-		ReportInterval: time.Duration(conf.ReportInterval) * time.Second,
-		ServerAddr:     "http://" + conf.ServerAddr,
+		service: s,
+		conf:    conf,
 	}
 }
 
 func (c *client) Run(ctx context.Context) {
-	pollTicker := time.NewTicker(c.PollInterval)
-	reportTicker := time.NewTicker(c.ReportInterval)
+	pollTicker := time.NewTicker(c.conf.GetPollIntervalDuration())
+	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer pollTicker.Stop()
 	defer reportTicker.Stop()
 
@@ -48,7 +46,9 @@ func (c *client) Run(ctx context.Context) {
 		case <-pollTicker.C:
 			c.UpdateMetrics()
 		case <-reportTicker.C:
-			c.SendMetrics()
+			if err := c.SendMetrics(); err != nil {
+				log.Error().Msg(err.Error())
+			}
 		case <-ctx.Done():
 			return
 		}
@@ -56,36 +56,35 @@ func (c *client) Run(ctx context.Context) {
 }
 
 func (c *client) UpdateMetrics() {
-	c.Service.UpdateMetrics()
+	c.service.UpdateMetrics()
 }
 
-func (c *client) SendMetrics() {
-	for _, v := range c.Service.GetAll() {
-		c.SendMetric(v)
+func (c *client) SendMetrics() error {
+	metricsSlice := []metrics.Metric{}
+	for _, v := range c.service.GetAll() {
+		metricsSlice = append(metricsSlice, v)
 	}
-}
 
-func (c *client) SendMetric(m metrics.Metric) {
-	marshalled, err := json.Marshal(m)
+	marshalled, err := json.Marshal(metricsSlice)
 	if err != nil {
-		log.Fatalf("impossible to marshall metric: %s", err)
+		return errors.Join(metricerrors.ErrFailedMetricMarshall, err)
 	}
 
 	buf := bytes.NewBuffer(nil)
 	gb := gzip.NewWriter(buf)
 	_, err = gb.Write(marshalled)
 	if err != nil {
-		log.Fatalf("impossible to compress metric ussing gzip: %s", err)
+		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
 	}
 	err = gb.Close()
 	if err != nil {
-		log.Fatalf("impossible to compress metric ussing gzip: %s", err)
+		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
 	}
 
-	url := fmt.Sprintf("%s/update/", c.ServerAddr)
+	url := fmt.Sprintf("%s/updates/", c.conf.GetNormilizedServerAddr())
 	req, err := http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
-		return
+		return err
 	}
 	req.Header.Add(headers.ContentType, "application/json")
 	req.Header.Add(headers.AcceptEncoding, "gzip")
@@ -94,8 +93,12 @@ func (c *client) SendMetric(m metrics.Metric) {
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response status code while sending metrics: %s", res.Status)
 	}
 
 	defer res.Body.Close()
+	return nil
 }

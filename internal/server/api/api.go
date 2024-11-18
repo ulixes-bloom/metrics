@@ -2,63 +2,41 @@ package api
 
 import (
 	"context"
-	"log"
 	"net/http"
-	"os"
-	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/rs/zerolog"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/logger"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/service"
-	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
 )
 
 type api struct {
 	service Service
-	config  config.Config
-	log     zerolog.Logger
+	conf    *config.Config
 	router  *chi.Mux
 }
 
-func New(conf config.Config) *api {
-	logger, err := logger.Initialize(conf.LogLvl, os.Stdout)
-	if err != nil {
-		log.Fatal(err)
-	}
-	st := memory.NewStorage(conf.FileStoragePath)
-	srv := service.New(st, logger, conf)
-
+func New(conf *config.Config, storage service.Storage) *api {
+	srv := service.New(storage, conf)
 	newAPI := api{
 		service: srv,
-		log:     logger,
-		config:  conf,
+		conf:    conf,
 	}
 	newAPI.router = newAPI.newRouter()
-
 	return &newAPI
 }
 
-func (a *api) Run(ctx context.Context) {
+func (a *api) Run(ctx context.Context) error {
+	errChan := make(chan error, 1)
+
 	go func() {
-		err := http.ListenAndServe(a.config.RunAddr, a.router)
-		if err != nil {
-			a.log.Fatal().Msg(err.Error())
-		}
+		errChan <- http.ListenAndServe(a.conf.RunAddr, a.router)
 	}()
 
-	storeTicker := time.NewTicker(a.config.StoreInterval)
-	defer storeTicker.Stop()
-
-	for {
-		select {
-		case <-storeTicker.C:
-			a.service.StoreMetrics()
-		case <-ctx.Done():
-			a.service.ShutDown()
-			return
-		}
+	select {
+	case err := <-errChan:
+		return err
+	case <-ctx.Done():
+		return a.service.Shutdown()
 	}
 }
 
@@ -67,9 +45,11 @@ func (a *api) newRouter() *chi.Mux {
 	r.Use(a.MiddlewareLogging)
 	r.Use(a.MiddlewareCompressing)
 	r.Get("/", a.GetMetricsHTMLTable)
+	r.Get("/ping", a.PingDB)
 	r.Get("/value/{mtype}/{mname}", a.GetMetric)
 	r.Post("/update/{mtype}/{mname}/{mval}", a.UpdateMetric)
 	r.Post("/value/", a.GetJSONMetric)
 	r.Post("/update/", a.UpdateJSONMetric)
+	r.Post("/updates/", a.UpdateMetrics)
 	return r
 }
