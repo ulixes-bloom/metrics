@@ -13,6 +13,7 @@ type Config struct {
 	ReportInterval int    `env:"REPORT_INTERVAL"`
 	PollInterval   int    `env:"POLL_INTERVAL"`
 	LogLvl         string `env:"LOGLVL"`
+	HashKey        string `env:"KEY"`
 }
 
 func Parse() (*Config, error) {
@@ -22,6 +23,7 @@ func Parse() (*Config, error) {
 	flag.IntVar(&conf.ReportInterval, "r", 10, "metrics report interval")
 	flag.IntVar(&conf.PollInterval, "p", 2, "metrics update interval")
 	flag.StringVar(&conf.LogLvl, "l", "debug", "logging level")
+	flag.StringVar(&conf.HashKey, "k", "", "key to sign the metrics data")
 	flag.Parse()
 
 	env.Parse(&conf)
