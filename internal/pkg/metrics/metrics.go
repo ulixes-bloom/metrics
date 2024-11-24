@@ -40,40 +40,47 @@ func (m *Metric) GetValue() float64 {
 const Counter = "counter"
 const Gauge = "gauge"
 
-var CounterMetrics = []string{
-	"PollCount",
-}
+var (
+	CounterMetrics = []string{
+		"PollCount",
+	}
 
-var GaugeMetrics = []string{
-	"Alloc",
-	"BuckHashSys",
-	"Frees",
-	"GCCPUFraction",
-	"GCSys",
-	"HeapAlloc",
-	"HeapIdle",
-	"HeapInuse",
-	"HeapObjects",
-	"HeapReleased",
-	"HeapSys",
-	"LastGC",
-	"Lookups",
-	"MCacheInuse",
-	"MCacheSys",
-	"MSpanInuse",
-	"MSpanSys",
-	"Mallocs",
-	"NextGC",
-	"NumForcedGC",
-	"NumGC",
-	"OtherSys",
-	"PauseTotalNs",
-	"StackInuse",
-	"StackSys",
-	"Sys",
-	"TotalAlloc",
-	"RandomValue",
-}
+	GaugeMetrics = []string{
+		"Alloc",
+		"BuckHashSys",
+		"Frees",
+		"GCCPUFraction",
+		"GCSys",
+		"HeapAlloc",
+		"HeapIdle",
+		"HeapInuse",
+		"HeapObjects",
+		"HeapReleased",
+		"HeapSys",
+		"LastGC",
+		"Lookups",
+		"MCacheInuse",
+		"MCacheSys",
+		"MSpanInuse",
+		"MSpanSys",
+		"Mallocs",
+		"NextGC",
+		"NumForcedGC",
+		"NumGC",
+		"OtherSys",
+		"PauseTotalNs",
+		"StackInuse",
+		"StackSys",
+		"Sys",
+		"TotalAlloc",
+		"RandomValue",
+		"TotalMemory",
+		"FreeMemory",
+		"CPUutilization1",
+	}
+
+	MetricsCount = len(GaugeMetrics) + len(CounterMetrics)
+)
 
 const HTMLTemplate = `<html>
 	<head>

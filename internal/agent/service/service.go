@@ -1,10 +1,15 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"math/rand"
 	"runtime"
 
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"golang.org/x/sync/errgroup"
 )
 
 type service struct {
@@ -15,7 +20,24 @@ func New(storage Storage) *service {
 	return &service{storage: storage}
 }
 
-func (s *service) UpdateMetrics() {
+func (s *service) Poll(ctx context.Context) error {
+	g, _ := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		s.pollRuntimeMetrics()
+		return nil
+	})
+	g.Go(func() error {
+		return s.pollSystemMetrics(ctx)
+	})
+
+	if err := g.Wait(); err != nil {
+		return fmt.Errorf("failed to poll metrics: %w", err)
+	}
+	return nil
+}
+
+func (s *service) pollRuntimeMetrics() {
 	ms := runtime.MemStats{}
 	runtime.ReadMemStats(&ms)
 
@@ -49,6 +71,24 @@ func (s *service) UpdateMetrics() {
 	s.storage.Add(metrics.NewGaugeMetric("RandomValue", rand.Float64()))
 
 	s.storage.Add(metrics.NewCounterMetric("PollCount", 1))
+}
+
+func (s *service) pollSystemMetrics(ctx context.Context) error {
+	vMem, err := mem.VirtualMemory()
+	if err != nil {
+		return fmt.Errorf("error while polling virtual memory: %w", err)
+	}
+
+	utilisation, err := cpu.PercentWithContext(ctx, 0, false)
+	if err != nil {
+		return fmt.Errorf("error while polling cpu: %w", err)
+	}
+
+	s.storage.Add(metrics.NewGaugeMetric("TotalMemory", float64(vMem.Total)))
+	s.storage.Add(metrics.NewGaugeMetric("FreeMemory", float64(vMem.Free)))
+	s.storage.Add(metrics.NewGaugeMetric("CPUutilization1", float64(utilisation[0])))
+
+	return nil
 }
 
 func (s *service) GetAll() map[string]metrics.Metric {

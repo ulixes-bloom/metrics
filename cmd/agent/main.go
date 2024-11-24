@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -18,7 +19,12 @@ func main() {
 		log.Fatal().Msg(err.Error())
 	}
 	// Инициализация контекста
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(),
+		os.Interrupt,
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer stop()
 
 	logLvl, err := zerolog.ParseLevel(conf.LogLvl)
@@ -26,8 +32,6 @@ func main() {
 		log.Fatal().Err(err).Msg("unable to parse log level")
 	}
 	zerolog.SetGlobalLevel(logLvl)
-
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
 	client.New(conf).Run(ctx)
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -17,11 +18,13 @@ import (
 type memstorage struct {
 	metrics map[string]metrics.Metric
 	conf    *config.Config
+	mutex   *sync.RWMutex
 }
 
 func NewStorage(conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
-		conf: conf,
+		conf:  conf,
+		mutex: &sync.RWMutex{},
 	}
 	ms.metrics = map[string]metrics.Metric{}
 	for _, g := range metrics.GaugeMetrics {
@@ -50,6 +53,9 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 }
 
 func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
 	switch metric.MType {
 	case metrics.Counter:
 		cur, ok := ms.metrics[metric.ID]
@@ -73,6 +79,9 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 }
 
 func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
 	for _, m := range meticsSlice {
 		if _, err := ms.Set(m); err != nil {
 			return err
@@ -86,6 +95,9 @@ func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
 }
 
 func (ms *memstorage) Get(name string) (metrics.Metric, error) {
+	ms.mutex.RLock()
+	defer ms.mutex.RUnlock()
+
 	metric, ok := ms.metrics[name]
 	if !ok {
 		return metric, metricerrors.ErrMetricNotExists
@@ -94,6 +106,9 @@ func (ms *memstorage) Get(name string) (metrics.Metric, error) {
 }
 
 func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
+	ms.mutex.RLock()
+	defer ms.mutex.RUnlock()
+
 	allMetrics := []metrics.Metric{}
 	for _, m := range ms.metrics {
 		allMetrics = append(allMetrics, m)
@@ -102,6 +117,9 @@ func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
 }
 
 func (ms *memstorage) Setup() error {
+	ms.mutex.Lock()
+	defer ms.mutex.Unlock()
+
 	err := ms.restoreMetricsFromFile()
 	ms.async()
 	return err
@@ -172,7 +190,8 @@ func (ms *memstorage) saveMetricsToFile() error {
 
 	writer := bufio.NewWriter(file)
 	encoder := json.NewEncoder(writer)
-	if err = encoder.Encode(ms.metrics); err != nil {
+	msMetrics, _ := ms.GetAll()
+	if err = encoder.Encode(msMetrics); err != nil {
 		return err
 	}
 	return writer.Flush()
