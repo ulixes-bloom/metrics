@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"net/http"
 	"sync"
 
 	"time"
@@ -15,15 +16,16 @@ import (
 
 type client struct {
 	service Service
+	http    *http.Client
 	conf    *config.Config
 }
 
 func New(conf *config.Config) *client {
 	ms := memory.NewStorage()
-	s := service.New(ms)
 
 	return &client{
-		service: s,
+		service: service.New(ms),
+		http:    &http.Client{},
 		conf:    conf,
 	}
 }
@@ -52,7 +54,10 @@ func (c *client) pollMetrics(ctx context.Context) {
 	for {
 		select {
 		case <-pollTicker.C:
-			c.service.Poll(ctx)
+			err := c.service.Poll(ctx)
+			if err != nil {
+				log.Error().Msg(err.Error())
+			}
 		case <-ctx.Done():
 			log.Debug().Msg("done polling metrics")
 			return

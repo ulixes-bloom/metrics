@@ -51,8 +51,7 @@ func (c *client) sendMetric(m metrics.Metric) error {
 	req.Header.Add(headers.AcceptEncoding, "gzip")
 	req.Header.Add(headers.ContentEncoding, "gzip")
 
-	client := &http.Client{}
-	res, err := client.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}

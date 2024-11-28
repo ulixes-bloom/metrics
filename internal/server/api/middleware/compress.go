@@ -50,7 +50,7 @@ func (gw *gzipWriter) Write(p []byte) (int, error) {
 
 func (gw *gzipWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
-		gw.w.Header().Add(headers.ContentEncoding, "gzip")
+		gw.w.Header().Set(headers.ContentEncoding, "gzip")
 	}
 	gw.w.WriteHeader(statusCode)
 }

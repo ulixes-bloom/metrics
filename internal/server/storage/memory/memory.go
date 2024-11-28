@@ -18,13 +18,12 @@ import (
 type memstorage struct {
 	metrics map[string]metrics.Metric
 	conf    *config.Config
-	mutex   *sync.RWMutex
+	mutex   sync.RWMutex
 }
 
 func NewStorage(conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
-		conf:  conf,
-		mutex: &sync.RWMutex{},
+		conf: conf,
 	}
 	ms.metrics = map[string]metrics.Metric{}
 	for _, g := range metrics.GaugeMetrics {

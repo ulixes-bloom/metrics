@@ -3,23 +3,23 @@ package memory
 import (
 	"sync"
 
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
 type storage struct {
 	metrics map[string]metrics.Metric
-	mutex   *sync.RWMutex
+	mutex   sync.RWMutex
 }
 
 func NewStorage() *storage {
 	m := storage{
 		metrics: map[string]metrics.Metric{},
-		mutex:   &sync.RWMutex{},
 	}
 	return &m
 }
 
-func (s *storage) Add(metric metrics.Metric) error {
+func (s *storage) Set(metric metrics.Metric) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -36,7 +36,20 @@ func (s *storage) Add(metric metrics.Metric) error {
 	case metrics.Gauge:
 		s.metrics[metric.ID] = metric
 	default:
-		return nil
+		return metricerrors.ErrMetricTypeNotImplemented
+	}
+
+	return nil
+}
+
+func (s *storage) SetAll(meticsSlice []metrics.Metric) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	for _, m := range meticsSlice {
+		if err := s.Set(m); err != nil {
+			return err
+		}
 	}
 
 	return nil
