@@ -59,13 +59,8 @@ func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			// Закрытие request body
-			err = r.Body.Close()
-			if err != nil {
-				log.Error().Msg(err.Error())
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
+			defer r.Body.Close()
+
 			// Восстановление содержимого request body буфера
 			r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
@@ -97,7 +92,6 @@ func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 				}
 
 				w.Header().Set(headers.HashSHA256, respHash)
-				w.WriteHeader(wm.responseMemory.status)
 			}
 		})
 	}
