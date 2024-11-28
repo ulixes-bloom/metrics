@@ -43,9 +43,6 @@ func (s *storage) Set(metric metrics.Metric) error {
 }
 
 func (s *storage) SetAll(meticsSlice []metrics.Metric) error {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-
 	for _, m := range meticsSlice {
 		if err := s.Set(m); err != nil {
 			return err

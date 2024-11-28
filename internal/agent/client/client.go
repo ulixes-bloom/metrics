@@ -1,7 +1,12 @@
 package client
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 
@@ -11,7 +16,10 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
 
 type client struct {
@@ -69,24 +77,57 @@ func (c *client) reportMetrics(ctx context.Context) {
 	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer reportTicker.Stop()
 
-	// создаем канал, через который будем отправлять метрики в worker'ы
-	metricsToSendChan := make(chan metrics.Metric, metrics.MetricsCount)
-	defer close(metricsToSendChan)
-
-	// создаем worker'ов для отправки метрик на сервер
-	for w := 1; w <= c.conf.RateLimit; w++ {
-		go c.worker(metricsToSendChan)
-	}
+	// создаем worker pool для отправки метрик на сервер
+	pool := workerpool.New(c.conf.RateLimit, metrics.MetricsCount, c.sendMetric)
 
 	for {
 		select {
 		case <-reportTicker.C:
 			for _, m := range c.service.GetAll() {
-				metricsToSendChan <- m
+				pool.Submit(m)
 			}
 		case <-ctx.Done():
 			log.Debug().Msg("done reporting metrics")
+			pool.StopAndWait()
 			return
 		}
 	}
+}
+
+func (c *client) sendMetric(m metrics.Metric) error {
+	marshalled, err := json.Marshal(m)
+	if err != nil {
+		return errors.Join(metricerrors.ErrFailedMetricMarshall, err)
+	}
+
+	buf := bytes.NewBuffer(nil)
+	gb := gzip.NewWriter(buf)
+	_, err = gb.Write(marshalled)
+	if err != nil {
+		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
+	}
+	err = gb.Close()
+	if err != nil {
+		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
+	}
+
+	url := fmt.Sprintf("%s/update/", c.conf.GetNormilizedServerAddr())
+	req, err := http.NewRequest(http.MethodPost, url, buf)
+	if err != nil {
+		return err
+	}
+	req.Header.Add(headers.ContentType, "application/json")
+	req.Header.Add(headers.AcceptEncoding, "gzip")
+	req.Header.Add(headers.ContentEncoding, "gzip")
+
+	res, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected response status code while sending metrics: %s", res.Status)
+	}
+
+	defer res.Body.Close()
+	return nil
 }
