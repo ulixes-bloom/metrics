@@ -14,7 +14,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
-	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
@@ -28,11 +27,9 @@ type client struct {
 	conf    *config.Config
 }
 
-func New(conf *config.Config) *client {
-	ms := memory.NewStorage()
-
+func New(conf *config.Config, storage service.Storage) *client {
 	return &client{
-		service: service.New(ms),
+		service: service.New(storage),
 		http:    &http.Client{},
 		conf:    conf,
 	}
