@@ -14,6 +14,7 @@ type Config struct {
 	FileStoragePath string        `env:"FILE_STORAGE_PATH"`
 	Restore         bool          `env:"RESTORE"`
 	DatabaseDSN     string        `env:"DATABASE_DSN"`
+	HashKey         string        `env:"KEY"`
 }
 
 func Parse() *Config {
@@ -26,6 +27,7 @@ func Parse() *Config {
 	flag.StringVar(&conf.FileStoragePath, "f", defaultValues.FileStoragePath, "file storage path")
 	flag.BoolVar(&conf.Restore, "r", defaultValues.Restore, "to restore metrics data")
 	flag.StringVar(&conf.DatabaseDSN, "d", defaultValues.DatabaseDSN, "Postgresql data source name")
+	flag.StringVar(&conf.HashKey, "k", defaultValues.HashKey, "key to sign the metrics data")
 
 	flag.Parse()
 	env.Parse(&conf)
@@ -40,5 +42,6 @@ func GetDefault() (conf *Config) {
 		FileStoragePath: "metrics_store.txt",
 		Restore:         true,
 		DatabaseDSN:     "",
+		HashKey:         "",
 	}
 }

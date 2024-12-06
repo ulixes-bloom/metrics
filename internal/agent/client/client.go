@@ -7,65 +7,92 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-
 	"net/http"
+	"sync"
+
 	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
-	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
 
 type client struct {
 	service Service
+	http    *http.Client
 	conf    *config.Config
 }
 
-func New(conf *config.Config) *client {
-	ms := memory.NewStorage()
-	s := service.New(ms)
-
+func New(conf *config.Config, storage service.Storage) *client {
 	return &client{
-		service: s,
+		service: service.New(storage),
+		http:    &http.Client{},
 		conf:    conf,
 	}
 }
 
 func (c *client) Run(ctx context.Context) {
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		c.pollMetrics(ctx)
+		wg.Done()
+	}()
+
+	go func() {
+		c.reportMetrics(ctx)
+		wg.Done()
+	}()
+
+	wg.Wait()
+}
+
+func (c *client) pollMetrics(ctx context.Context) {
 	pollTicker := time.NewTicker(c.conf.GetPollIntervalDuration())
-	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer pollTicker.Stop()
-	defer reportTicker.Stop()
 
 	for {
 		select {
 		case <-pollTicker.C:
-			c.UpdateMetrics()
-		case <-reportTicker.C:
-			if err := c.SendMetrics(); err != nil {
+			err := c.service.Poll(ctx)
+			if err != nil {
 				log.Error().Msg(err.Error())
 			}
 		case <-ctx.Done():
+			log.Debug().Msg("done polling metrics")
 			return
 		}
 	}
 }
 
-func (c *client) UpdateMetrics() {
-	c.service.UpdateMetrics()
+func (c *client) reportMetrics(ctx context.Context) {
+	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
+	defer reportTicker.Stop()
+
+	// создаем worker pool для отправки метрик на сервер
+	pool := workerpool.New(c.conf.RateLimit, metrics.MetricsCount, c.sendMetric)
+
+	for {
+		select {
+		case <-reportTicker.C:
+			for _, m := range c.service.GetAll() {
+				pool.Submit(m)
+			}
+		case <-ctx.Done():
+			log.Debug().Msg("done reporting metrics")
+			pool.StopAndWait()
+			return
+		}
+	}
 }
 
-func (c *client) SendMetrics() error {
-	metricsSlice := []metrics.Metric{}
-	for _, v := range c.service.GetAll() {
-		metricsSlice = append(metricsSlice, v)
-	}
-
-	marshalled, err := json.Marshal(metricsSlice)
+func (c *client) sendMetric(m metrics.Metric) error {
+	marshalled, err := json.Marshal(m)
 	if err != nil {
 		return errors.Join(metricerrors.ErrFailedMetricMarshall, err)
 	}
@@ -81,7 +108,7 @@ func (c *client) SendMetrics() error {
 		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
 	}
 
-	url := fmt.Sprintf("%s/updates/", c.conf.GetNormilizedServerAddr())
+	url := fmt.Sprintf("%s/update/", c.conf.GetNormilizedServerAddr())
 	req, err := http.NewRequest(http.MethodPost, url, buf)
 	if err != nil {
 		return err
@@ -90,8 +117,7 @@ func (c *client) SendMetrics() error {
 	req.Header.Add(headers.AcceptEncoding, "gzip")
 	req.Header.Add(headers.ContentEncoding, "gzip")
 
-	client := &http.Client{}
-	res, err := client.Do(req)
+	res, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}
