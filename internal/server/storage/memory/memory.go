@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	appErrors "github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 )
@@ -25,7 +25,10 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
 		conf: conf,
 	}
+	// pre-allocate the metrics map with the expected size
 	ms.metrics = make(map[string]metrics.Metric, len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
+
+	// initialize Gauge metrics with a default value of 0
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
 		ms.metrics[g] = metrics.Metric{
@@ -34,6 +37,8 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 			Value: &zeroVal,
 		}
 	}
+
+	// initialize Counter metrics with a default value of 0
 	for _, c := range metrics.CounterMetrics {
 		zeroVal := int64(0)
 		ms.metrics[c] = metrics.Metric{
@@ -45,7 +50,6 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 
 	err := ms.setup()
 	if err != nil {
-		fmt.Println(err)
 		return nil, fmt.Errorf("memory.newStorage.setup: %w", err)
 	}
 
@@ -58,35 +62,33 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 
 	switch metric.MType {
 	case metrics.Counter:
-		cur, ok := ms.metrics[metric.ID]
-		if ok {
-			newDelta := (metric.GetDelta() + cur.GetDelta())
+		cur, exists := ms.metrics[metric.ID]
+		if exists {
+			newDelta := metric.GetDelta() + cur.GetDelta()
 			metric.Delta = &newDelta
-			ms.metrics[metric.ID] = metric
-		} else {
-			ms.metrics[metric.ID] = metric
 		}
+		ms.metrics[metric.ID] = metric
 	case metrics.Gauge:
 		ms.metrics[metric.ID] = metric
 	default:
-		return metric, metricerrors.ErrMetricTypeNotImplemented
+		return metric, appErrors.ErrMetricTypeNotImplemented
 	}
 
 	if err := ms.sync(); err != nil {
-		return metric, fmt.Errorf("memory.set.sync: %w", err)
+		return metric, fmt.Errorf("memory.set: %w", err)
 	}
 	return metric, nil
 }
 
-func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
-	for _, m := range meticsSlice {
+func (ms *memstorage) SetAll(metricsSlice []metrics.Metric) error {
+	for _, m := range metricsSlice {
 		if _, err := ms.Set(m); err != nil {
 			return fmt.Errorf("memory.setAll.set: %w", err)
 		}
 	}
 
 	if err := ms.sync(); err != nil {
-		return fmt.Errorf("memory.setAll.sync: %w", err)
+		return fmt.Errorf("memory.setAll: %w", err)
 	}
 	return nil
 }
@@ -95,9 +97,9 @@ func (ms *memstorage) Get(name string) (metrics.Metric, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	metric, ok := ms.metrics[name]
-	if !ok {
-		return metric, metricerrors.ErrMetricNotExists
+	metric, exists := ms.metrics[name]
+	if !exists {
+		return metric, appErrors.ErrMetricNotExists
 	}
 	return metric, nil
 }
@@ -106,7 +108,7 @@ func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
-	allMetrics := []metrics.Metric{}
+	allMetrics := make([]metrics.Metric, 0, len(ms.metrics))
 	for _, m := range ms.metrics {
 		allMetrics = append(allMetrics, m)
 	}
@@ -117,8 +119,8 @@ func (ms *memstorage) setup() error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
-	err := ms.restoreMetricsFromFile()
-	if err != nil {
+	// Restore metrics values from file
+	if err := ms.restoreMetricsFromFile(); err != nil {
 		return fmt.Errorf("memory.setup: %w", err)
 	}
 
@@ -130,7 +132,7 @@ func (ms *memstorage) Shutdown() error {
 	return ms.saveMetricsToFile()
 }
 
-// Асинхронная запись метрик в файл
+// start a background process to save metrics to a file with period conf.StoreInterval
 func (ms *memstorage) async() {
 	if ms.conf.StoreInterval == 0 {
 		return
@@ -140,7 +142,6 @@ func (ms *memstorage) async() {
 	go func() {
 		for {
 			<-storeTicker.C
-
 			if err := ms.saveMetricsToFile(); err != nil {
 				log.Err(err)
 			}
@@ -148,21 +149,21 @@ func (ms *memstorage) async() {
 	}()
 }
 
-// Синхронная запись метрик в файл
+// persist metrics values to a file if config.StoreInterval is set to 0.
 func (ms *memstorage) sync() error {
 	if ms.conf.StoreInterval == 0 {
-		err := ms.saveMetricsToFile()
-		if err != nil {
+		if err := ms.saveMetricsToFile(); err != nil {
 			return fmt.Errorf("memory.sync: %w", err)
 		}
 	}
 	return nil
 }
 
-// Считывание значений метрик из файла в память
+// load metrics from the file into memory.
 func (ms *memstorage) restoreMetricsFromFile() error {
-	_, error := os.Stat(ms.conf.FileStoragePath)
-	if errors.Is(error, os.ErrNotExist) {
+	_, err := os.Stat(ms.conf.FileStoragePath)
+	if errors.Is(err, os.ErrNotExist) {
+		// file doesn't exist, nothing to restore
 		return nil
 	}
 
@@ -170,6 +171,8 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 	if err != nil {
 		return fmt.Errorf("memory.restoreMetricsFromFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
 	}
+	defer file.Close()
+
 	var restoredMetrics map[string]metrics.Metric
 	err = json.NewDecoder(file).Decode(&restoredMetrics)
 	if err != nil {
@@ -179,7 +182,7 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 	return nil
 }
 
-// Сохранение значений метрик из памяти в файл
+// write metrics from memory to the file specified in config.FileStoragePath
 func (ms *memstorage) saveMetricsToFile() error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
@@ -190,7 +193,7 @@ func (ms *memstorage) saveMetricsToFile() error {
 	writer := bufio.NewWriter(file)
 	encoder := json.NewEncoder(writer)
 	msMetrics, _ := ms.GetAll()
-	if err = encoder.Encode(msMetrics); err != nil {
+	if err := encoder.Encode(msMetrics); err != nil {
 		return fmt.Errorf("memory.saveMetricsToFile.encode: %w", err)
 	}
 	return writer.Flush()

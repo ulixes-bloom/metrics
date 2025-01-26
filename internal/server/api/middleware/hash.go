@@ -30,13 +30,11 @@ func newResponseWriterWithMemory(w http.ResponseWriter) *responseWriterWithMemor
 	}
 }
 
-// Расширение метода http.ResponseWriter.Write()
 func (r *responseWriterWithMemory) Write(b []byte) (int, error) {
 	r.responseMemory.body.Write(b)
 	return r.ResponseWriter.Write(b)
 }
 
-// Расширение метода http.ResponseWriter.WriteHeader()
 func (r *responseWriterWithMemory) WriteHeader(statusCode int) {
 	r.ResponseWriter.WriteHeader(statusCode)
 	r.responseMemory.status = statusCode
@@ -45,14 +43,14 @@ func (r *responseWriterWithMemory) WriteHeader(statusCode int) {
 func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Считывание хеша из хедера
+			// read the hash value from the requst header
 			reqHash := r.Header.Get(headers.HashSHA256)
 			if reqHash == "" {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Считывание содержимого request body буфера
+			// read the request body into a buffer
 			reqBody, err := io.ReadAll(r.Body)
 			if err != nil {
 				log.Error().Msg(err.Error())
@@ -61,27 +59,29 @@ func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 			}
 			defer r.Body.Close()
 
-			// Восстановление содержимого request body буфера
+			// restore the request body so it can be read by subsequent handlers
 			r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
-			// Вычисление хеша от тела запроса
+			// calculate the hash value of the request body using the provided hash key
 			calchash, err := hash.Encode([]byte(reqBody), hashKey)
 			if err != nil {
 				log.Error().Msg(err.Error())
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
-			// Сравнение вычисленного и полученного в заголовке хешей
+
+			// compare the calculated hash with the hash provided in the header
 			if reqHash != calchash {
 				log.Error().Msg("incorrect hash")
 				http.Error(w, "incorrect hash", http.StatusBadRequest)
 				return
 			}
 
+			// create a wrapper around the ResponseWriter to capture the response body and status
 			wm := newResponseWriterWithMemory(w)
 
 			next.ServeHTTP(wm, r)
-
+			// if the response status is HTTP 200 (OK), calculate the response body hash
 			if wm.responseMemory.status == http.StatusOK {
 				respBody := wm.responseMemory.body
 				respHash, err := hash.Encode(respBody.Bytes(), hashKey)

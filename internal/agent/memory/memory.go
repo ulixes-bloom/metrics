@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -37,7 +37,7 @@ func (s *storage) Set(metric metrics.Metric) error {
 	case metrics.Gauge:
 		s.metrics[metric.ID] = metric
 	default:
-		return metricerrors.ErrMetricTypeNotImplemented
+		return errors.ErrMetricTypeNotImplemented
 	}
 
 	return nil

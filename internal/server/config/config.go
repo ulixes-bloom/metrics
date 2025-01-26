@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/caarlos0/env"
@@ -17,7 +19,7 @@ type Config struct {
 	HashKey         string        `env:"KEY"`
 }
 
-func Parse() *Config {
+func Parse() (*Config, error) {
 	var conf Config
 	defaultValues := GetDefault()
 
@@ -30,8 +32,17 @@ func Parse() *Config {
 	flag.StringVar(&conf.HashKey, "k", defaultValues.HashKey, "key to sign the metrics data")
 
 	flag.Parse()
-	env.Parse(&conf)
-	return &conf
+
+	err := env.Parse(&conf)
+	if err != nil {
+		return nil, fmt.Errorf("config.parse: %w", err)
+	}
+
+	if conf.StoreInterval <= 0 {
+		return nil, errors.New("config.parse: negative or zero store interval")
+	}
+
+	return &conf, nil
 }
 
 func GetDefault() (conf *Config) {

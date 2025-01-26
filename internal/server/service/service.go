@@ -7,7 +7,7 @@ import (
 	"html/template"
 	"strconv"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/retry"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
@@ -75,7 +75,7 @@ func (s *service) GetMetric(mtype, mname string) ([]byte, error) {
 		}
 		mval = strconv.FormatInt(metric.GetDelta(), 10)
 	default:
-		return nil, metricerrors.ErrMetricTypeNotImplemented
+		return nil, errors.ErrMetricTypeNotImplemented
 	}
 
 	return []byte(mval), nil
@@ -90,7 +90,7 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 				return fmt.Errorf("service.updateMetric.parseGauge: %w", err)
 			}
 		} else {
-			return metricerrors.ErrMetricValueNotValid
+			return errors.ErrMetricValueNotValid
 		}
 	case metrics.Counter:
 		if val, err := strconv.ParseInt(mval, 10, 64); err == nil {
@@ -99,10 +99,10 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 				return fmt.Errorf("service.updateMetric.parseCounter: %w", err)
 			}
 		} else {
-			return metricerrors.ErrMetricValueNotValid
+			return errors.ErrMetricValueNotValid
 		}
 	default:
-		return metricerrors.ErrMetricTypeNotImplemented
+		return errors.ErrMetricTypeNotImplemented
 	}
 
 	return nil

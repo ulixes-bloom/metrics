@@ -1,7 +1,6 @@
 package pg
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -9,7 +8,7 @@ import (
 	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	appErrors "github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -17,10 +16,14 @@ type pgstorage struct {
 	db *sql.DB
 }
 
-func NewStorage(ctx context.Context, db *sql.DB) (*pgstorage, error) {
+func NewStorage(db *sql.DB) (*pgstorage, error) {
 	newStorage := pgstorage{db: db}
 
 	if err := newStorage.createTables(); err != nil {
+		return nil, fmt.Errorf("pg.NewStorage: %w", err)
+	}
+
+	if err := newStorage.PingDB(); err != nil {
 		return nil, fmt.Errorf("pg.NewStorage: %w", err)
 	}
 
@@ -55,7 +58,7 @@ func (ps *pgstorage) PingDB() error {
 
 func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	if metric.MType != metrics.Counter && metric.MType != metrics.Gauge {
-		return metric, metricerrors.ErrMetricTypeNotImplemented
+		return metric, appErrors.ErrMetricTypeNotImplemented
 	}
 
 	_, err := ps.db.Exec(`
@@ -91,7 +94,7 @@ func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
 
 	for _, m := range meticsSlice {
 		if m.MType != metrics.Counter && m.MType != metrics.Gauge {
-			return metricerrors.ErrMetricTypeNotImplemented
+			return appErrors.ErrMetricTypeNotImplemented
 		}
 		_, err := stmt.Exec(m.ID, m.MType, m.Delta, m.Value)
 		if err != nil {

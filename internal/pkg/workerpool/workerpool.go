@@ -10,10 +10,10 @@ type jobCh[T any] chan T
 type jobHandler[T any] func(T) error
 
 type pool[T any] struct {
-	numOfWorkers int            // количество worker'ов в pool'е
-	jobCh        jobCh[T]       // канал с job'ами
-	jobHandler   jobHandler[T]  // обработчик job'ы
-	wg           sync.WaitGroup // синхронизатор работы worker'ов в pool'e
+	numOfWorkers int            // number of workers in pool
+	jobCh        jobCh[T]       // chanel with jobs
+	jobHandler   jobHandler[T]  // job handler
+	wg           sync.WaitGroup // synchronizer of workers jobs
 }
 
 func New[T any](numOfWorkers, jobChSize int, handler jobHandler[T]) *pool[T] {
@@ -31,19 +31,19 @@ func New[T any](numOfWorkers, jobChSize int, handler jobHandler[T]) *pool[T] {
 	return &p
 }
 
-// Добавление новой job'ы в worker pool
+// add a new job in worker pool
 func (p *pool[T]) Submit(job T) {
 	p.wg.Add(1)
 	p.jobCh <- job
 }
 
-// Остановка и ожидание окончания работы worker pool'а
+// stop and wait for the end of worker pool job handling
 func (p *pool[T]) StopAndWait() {
 	close(p.jobCh)
 	p.wg.Wait()
 }
 
-// Запуск worker'a
+// start new worker in pool
 func (p *pool[T]) startWorker() {
 	for {
 		j := <-p.jobCh

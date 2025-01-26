@@ -15,8 +15,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
+	appErrors "github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
@@ -74,7 +74,7 @@ func (c *client) reportMetrics(ctx context.Context) {
 	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer reportTicker.Stop()
 
-	// создаем worker pool для отправки метрик на сервер
+	// create worker pool for sending metrics to server
 	pool := workerpool.New(c.conf.RateLimit, metrics.MetricsCount, c.sendMetric)
 
 	for {
@@ -94,18 +94,18 @@ func (c *client) reportMetrics(ctx context.Context) {
 func (c *client) sendMetric(m metrics.Metric) error {
 	marshalled, err := json.Marshal(m)
 	if err != nil {
-		return errors.Join(metricerrors.ErrFailedMetricMarshall, err)
+		return errors.Join(appErrors.ErrFailedMetricMarshall, err)
 	}
 
 	buf := bytes.NewBuffer(nil)
 	gb := gzip.NewWriter(buf)
 	_, err = gb.Write(marshalled)
 	if err != nil {
-		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
+		return errors.Join(appErrors.ErrFailedMetricCompression, err)
 	}
 	err = gb.Close()
 	if err != nil {
-		return errors.Join(metricerrors.ErrFailedMetricCompression, err)
+		return errors.Join(appErrors.ErrFailedMetricCompression, err)
 	}
 
 	url := fmt.Sprintf("%s/update/", c.conf.GetNormilizedServerAddr())

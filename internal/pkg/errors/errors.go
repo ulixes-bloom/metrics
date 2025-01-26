@@ -1,4 +1,4 @@
-package metricerrors
+package errors
 
 import "errors"
 
