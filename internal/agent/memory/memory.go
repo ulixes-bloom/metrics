@@ -15,7 +15,7 @@ type storage struct {
 
 func NewStorage() *storage {
 	m := storage{
-		metrics: map[string]metrics.Metric{},
+		metrics: make(map[string]metrics.Metric, len(metrics.GaugeMetrics)+len(metrics.CounterMetrics)),
 	}
 	return &m
 }

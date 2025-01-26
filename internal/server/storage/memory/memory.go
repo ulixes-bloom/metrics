@@ -25,7 +25,7 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
 		conf: conf,
 	}
-	ms.metrics = map[string]metrics.Metric{}
+	ms.metrics = make(map[string]metrics.Metric, len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
 	for _, g := range metrics.GaugeMetrics {
 		zeroVal := float64(0)
 		ms.metrics[g] = metrics.Metric{
