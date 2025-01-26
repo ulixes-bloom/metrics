@@ -12,11 +12,15 @@ import (
 )
 
 type (
+	// gzipWriter wraps an http.ResponseWriter and a gzip.Writer to handle
+	// gzipped response content.
 	gzipWriter struct {
 		w      http.ResponseWriter
 		Writer *gzip.Writer
 	}
 
+	// gzipReader wraps an io.ReadCloser and a gzip.Reader to handle
+	// reading gzipped request bodies.
 	gzipReader struct {
 		r      io.ReadCloser
 		Reader *gzip.Reader
@@ -49,6 +53,8 @@ func (gw *gzipWriter) Write(p []byte) (int, error) {
 	return gw.Writer.Write(p)
 }
 
+// WriteHeader sets the HTTP status code and, if the status code is below 300,
+// adds the "Content-Encoding: gzip" header to indicate that the response is gzipped.
 func (gw *gzipWriter) WriteHeader(statusCode int) {
 	if statusCode < 300 {
 		gw.w.Header().Set(headers.ContentEncoding, "gzip")
@@ -71,6 +77,10 @@ func (gr *gzipReader) Close() error {
 	return gr.Reader.Close()
 }
 
+// WithCompressing is a middleware that compresses HTTP responses with gzip
+// if the client supports it, and decompresses gzipped request bodies if the
+// client sends them. It adds the appropriate "Content-Encoding" and "Accept-Encoding"
+// headers to indicate compression.
 func WithCompressing(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ow := w

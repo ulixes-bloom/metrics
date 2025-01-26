@@ -11,11 +11,15 @@ import (
 )
 
 type (
+	// responseMemory stores the status and body of an HTTP response to capture
+	// the response data for further processing (e.g., hashing).
 	responseMemory struct {
 		status int
 		body   bytes.Buffer
 	}
 
+	// responseWriterWithMemory wraps an http.ResponseWriter and includes a
+	// responseMemory to capture the response body and status for later use.
 	responseWriterWithMemory struct {
 		http.ResponseWriter
 		responseMemory *responseMemory
@@ -40,6 +44,9 @@ func (r *responseWriterWithMemory) WriteHeader(statusCode int) {
 	r.responseMemory.status = statusCode
 }
 
+// WithHashing is a middleware that validates the hash of the request body
+// and appends the hash of the response body to the response header. It uses
+// the provided hash key to calculate and compare hashes.
 func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

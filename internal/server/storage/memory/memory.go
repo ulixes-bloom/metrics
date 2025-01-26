@@ -26,7 +26,7 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 		conf: conf,
 	}
 	// pre-allocate the metrics map with the expected size
-	ms.metrics = make(map[string]metrics.Metric, len(metrics.GaugeMetrics)+len(metrics.CounterMetrics))
+	ms.metrics = make(map[string]metrics.Metric, metrics.MetricsCount)
 
 	// initialize Gauge metrics with a default value of 0
 	for _, g := range metrics.GaugeMetrics {

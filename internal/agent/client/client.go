@@ -1,3 +1,6 @@
+// Package client provides implemetation of the agent
+// It is ressponsible for polling system metrics and
+// reporting them to a remote server via HTTP.
 package client
 
 import (
@@ -5,7 +8,6 @@ import (
 	"compress/gzip"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -15,18 +17,19 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
-	appErrors "github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
 
+// client handles polling metrics from the system and reporting them to a server.
 type client struct {
 	service Service
 	http    *http.Client
 	conf    *config.Config
 }
 
+// New creates and initializes a new client instance.
 func New(conf *config.Config, storage service.Storage) *client {
 	return &client{
 		service: service.New(storage),
@@ -35,6 +38,13 @@ func New(conf *config.Config, storage service.Storage) *client {
 	}
 }
 
+// Run starts background operations of the client:
+//
+// 1. Polling metrics with the period specified in config.PollInterval.
+//
+// 2. Reporting metrics to the server with the period specified in config.ReportInterval.
+//
+// It runs these operations concurrently and waits for them to complete.
 func (c *client) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -52,6 +62,7 @@ func (c *client) Run(ctx context.Context) {
 	wg.Wait()
 }
 
+// pollMetrics periodically polls system metrics and stores them in memory.
 func (c *client) pollMetrics(ctx context.Context) {
 	pollTicker := time.NewTicker(c.conf.GetPollIntervalDuration())
 	defer pollTicker.Stop()
@@ -70,6 +81,8 @@ func (c *client) pollMetrics(ctx context.Context) {
 	}
 }
 
+// reportMetrics periodically retrieves all stored metrics from memory and sends them to the server.
+// sending is done in parallel using a workerpool.
 func (c *client) reportMetrics(ctx context.Context) {
 	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer reportTicker.Stop()
@@ -91,25 +104,29 @@ func (c *client) reportMetrics(ctx context.Context) {
 	}
 }
 
+// sendMetric sends a single metric to the server after compressing and encoding it.
 func (c *client) sendMetric(m metrics.Metric) error {
+	// Marshal metric to JSON
 	marshalled, err := json.Marshal(m)
 	if err != nil {
-		return errors.Join(appErrors.ErrFailedMetricMarshall, err)
+		return fmt.Errorf("client.sendMetric: %w", err)
 	}
 
-	buf := bytes.NewBuffer(nil)
-	gb := gzip.NewWriter(buf)
+	// Compress the marshalled data
+	var buf bytes.Buffer
+	gb := gzip.NewWriter(&buf)
 	_, err = gb.Write(marshalled)
 	if err != nil {
-		return errors.Join(appErrors.ErrFailedMetricCompression, err)
+		return fmt.Errorf("client.sendMetric: failed to compress metric, %w", err)
 	}
 	err = gb.Close()
 	if err != nil {
-		return errors.Join(appErrors.ErrFailedMetricCompression, err)
+		return fmt.Errorf("client.sendMetric: failed to close gzip writer, %w", err)
 	}
 
+	// Construct the request
 	url := fmt.Sprintf("%s/update/", c.conf.GetNormilizedServerAddr())
-	req, err := http.NewRequest(http.MethodPost, url, buf)
+	req, err := http.NewRequest(http.MethodPost, url, &buf)
 	if err != nil {
 		return err
 	}
@@ -117,14 +134,17 @@ func (c *client) sendMetric(m metrics.Metric) error {
 	req.Header.Add(headers.AcceptEncoding, "gzip")
 	req.Header.Add(headers.ContentEncoding, "gzip")
 
+	// Execute the HTTP request
 	res, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("client.sendMetric: %w", err)
 	}
+	defer res.Body.Close() // Ensure the body is always closed
+
+	// Validate the response status code
 	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected response status code while sending metrics: %s", res.Status)
+		return fmt.Errorf("client.sendMetric: unexpected response status code while sending metrics '%s'", res.Status)
 	}
 
-	defer res.Body.Close()
 	return nil
 }
