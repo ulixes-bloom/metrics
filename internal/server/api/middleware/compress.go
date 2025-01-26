@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"compress/gzip"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -32,7 +33,7 @@ func newGzipWriter(w http.ResponseWriter) *gzipWriter {
 func newGzipReader(r io.ReadCloser) (*gzipReader, error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("middleware.newGzipReader: %w", err)
 	}
 	return &gzipReader{
 		r:      r,
@@ -65,7 +66,7 @@ func (gr gzipReader) Read(p []byte) (n int, err error) {
 
 func (gr *gzipReader) Close() error {
 	if err := gr.r.Close(); err != nil {
-		return err
+		return fmt.Errorf("middleware.gzipReader.close: %w", err)
 	}
 	return gr.Reader.Close()
 }

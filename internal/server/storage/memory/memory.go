@@ -43,9 +43,10 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 		}
 	}
 
-	err := ms.Setup()
+	err := ms.setup()
 	if err != nil {
-		return nil, err
+		fmt.Println(err)
+		return nil, fmt.Errorf("memory.newStorage.setup: %w", err)
 	}
 
 	return &ms, nil
@@ -72,7 +73,7 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	}
 
 	if err := ms.sync(); err != nil {
-		return metric, err
+		return metric, fmt.Errorf("memory.set.sync: %w", err)
 	}
 	return metric, nil
 }
@@ -80,12 +81,12 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 func (ms *memstorage) SetAll(meticsSlice []metrics.Metric) error {
 	for _, m := range meticsSlice {
 		if _, err := ms.Set(m); err != nil {
-			return err
+			return fmt.Errorf("memory.setAll.set: %w", err)
 		}
 	}
 
 	if err := ms.sync(); err != nil {
-		return err
+		return fmt.Errorf("memory.setAll.sync: %w", err)
 	}
 	return nil
 }
@@ -112,13 +113,17 @@ func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
 	return allMetrics, nil
 }
 
-func (ms *memstorage) Setup() error {
+func (ms *memstorage) setup() error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
 	err := ms.restoreMetricsFromFile()
+	if err != nil {
+		return fmt.Errorf("memory.setup: %w", err)
+	}
+
 	ms.async()
-	return err
+	return nil
 }
 
 func (ms *memstorage) Shutdown() error {
@@ -148,9 +153,7 @@ func (ms *memstorage) sync() error {
 	if ms.conf.StoreInterval == 0 {
 		err := ms.saveMetricsToFile()
 		if err != nil {
-			log.Error().Msg(err.Error())
-
-			return err
+			return fmt.Errorf("memory.sync: %w", err)
 		}
 	}
 	return nil
@@ -165,12 +168,12 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
 	if err != nil {
-		return fmt.Errorf("file storage path: '%s', %w", ms.conf.FileStoragePath, err)
+		return fmt.Errorf("memory.restoreMetricsFromFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
 	}
 	var restoredMetrics map[string]metrics.Metric
 	err = json.NewDecoder(file).Decode(&restoredMetrics)
 	if err != nil {
-		return err
+		return fmt.Errorf("memory.restoreMetricsFromFile.decode: %w", err)
 	}
 	ms.metrics = restoredMetrics
 	return nil
@@ -180,7 +183,7 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 func (ms *memstorage) saveMetricsToFile() error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
-		return fmt.Errorf("file storage path: '%s', %w", ms.conf.FileStoragePath, err)
+		return fmt.Errorf("memory.saveMetricsToFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
 	}
 	defer file.Close()
 
@@ -188,7 +191,7 @@ func (ms *memstorage) saveMetricsToFile() error {
 	encoder := json.NewEncoder(writer)
 	msMetrics, _ := ms.GetAll()
 	if err = encoder.Encode(msMetrics); err != nil {
-		return err
+		return fmt.Errorf("memory.saveMetricsToFile.encode: %w", err)
 	}
 	return writer.Flush()
 }

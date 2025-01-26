@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"os"
 	"os/signal"
 
@@ -17,10 +18,12 @@ import (
 func main() {
 	// Инициализация конфигурации
 	conf := config.Parse()
+
 	// Инициализация контекста
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 
+	// Настройка логирования
 	logLvl, err := zerolog.ParseLevel(conf.LogLvl)
 	if err != nil {
 		log.Fatal().Err(err).Msg("unable to parse log level")
@@ -30,7 +33,11 @@ func main() {
 	// Инициализация хранилища метрик
 	var storage service.Storage
 	if conf.DatabaseDSN != "" {
-		ps, err := pg.NewStorage(conf.DatabaseDSN)
+		db, err := sql.Open("pgx", conf.DatabaseDSN)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+		ps, err := pg.NewStorage(ctx, db)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}

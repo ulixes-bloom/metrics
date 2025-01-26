@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
@@ -45,7 +46,7 @@ func (s *storage) Set(metric metrics.Metric) error {
 func (s *storage) SetAll(meticsSlice []metrics.Metric) error {
 	for _, m := range meticsSlice {
 		if err := s.Set(m); err != nil {
-			return err
+			return fmt.Errorf("memory.setAll: %w", err)
 		}
 	}
 

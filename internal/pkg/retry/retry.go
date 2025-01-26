@@ -30,7 +30,7 @@ func Do(retryableFunc RetryableFunc, shouldRetryFunc ShouldRetryFunc, attempts u
 	}
 	shouldRetry := shouldRetryFunc(err)
 	if !shouldRetry {
-		return err
+		return fmt.Errorf("retry.do: %w", err)
 	}
 
 	errorSlice := ErrorSlice{err}

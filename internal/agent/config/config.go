@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"flag"
+	"fmt"
 	"time"
 
 	"github.com/caarlos0/env"
@@ -30,17 +31,17 @@ func Parse() (*Config, error) {
 
 	err := env.Parse(&conf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("config.parse: %w", err)
 	}
 
 	if conf.ReportInterval <= 0 {
-		return nil, errors.New("negative or zero report interval")
+		return nil, errors.New("config.parse: negative or zero report interval")
 	}
 	if conf.PollInterval <= 0 {
-		return nil, errors.New("negative or zero poll interval")
+		return nil, errors.New("config.parse: negative or zero poll interval")
 	}
 	if conf.RateLimit <= 0 {
-		return nil, errors.New("negative or zero rate interval")
+		return nil, errors.New("config.parse: negative or zero rate interval")
 	}
 
 	return &conf, nil

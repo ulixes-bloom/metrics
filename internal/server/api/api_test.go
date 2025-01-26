@@ -176,13 +176,6 @@ func TestUpdateJSONMetric(t *testing.T) {
 	}
 }
 
-type Metrics struct {
-	ID    string   `json:"id"`
-	MType string   `json:"type"`
-	Delta *int64   `json:"delta,omitempty"`
-	Value *float64 `json:"value,omitempty"`
-}
-
 func TestGzipCompression(t *testing.T) {
 	type args struct {
 		url          string
