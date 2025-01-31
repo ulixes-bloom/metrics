@@ -3,10 +3,11 @@ package service
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"strconv"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/retry"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
@@ -31,11 +32,11 @@ func (s *service) GetMetricsHTMLTable() ([]byte, error) {
 	var wr bytes.Buffer
 	tmpl, err := template.New("tmpl").Parse(metrics.HTMLTemplate)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service.getMetricsHTMLTable: %w", err)
 	}
 	allMetrics, err := s.storage.GetAll()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service.getMetricsHTMLTable: %w", err)
 	}
 	metricsMap := map[string]string{}
 
@@ -50,7 +51,7 @@ func (s *service) GetMetricsHTMLTable() ([]byte, error) {
 
 	err = tmpl.Execute(&wr, metricsMap)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service.getMetricsHTMLTable: %w", err)
 	}
 
 	res := wr.Bytes()
@@ -64,17 +65,17 @@ func (s *service) GetMetric(mtype, mname string) ([]byte, error) {
 	case metrics.Gauge:
 		metric, err := s.storage.Get(mname)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("service.getMetric: %w", err)
 		}
 		mval = strconv.FormatFloat(metric.GetValue(), 'f', -1, 64)
 	case metrics.Counter:
 		metric, err := s.storage.Get(mname)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("service.getMetric: %w", err)
 		}
 		mval = strconv.FormatInt(metric.GetDelta(), 10)
 	default:
-		return nil, metricerrors.ErrMetricTypeNotImplemented
+		return nil, errors.ErrMetricTypeNotImplemented
 	}
 
 	return []byte(mval), nil
@@ -86,22 +87,22 @@ func (s *service) UpdateMetric(mtype, mname, mval string) error {
 		if val, err := strconv.ParseFloat(mval, 64); err == nil {
 			_, err := s.storage.Set(metrics.NewGaugeMetric(mname, val))
 			if err != nil {
-				return err
+				return fmt.Errorf("service.updateMetric.parseGauge: %w", err)
 			}
 		} else {
-			return metricerrors.ErrMetricValueNotValid
+			return errors.ErrMetricValueNotValid
 		}
 	case metrics.Counter:
 		if val, err := strconv.ParseInt(mval, 10, 64); err == nil {
 			_, err := s.storage.Set(metrics.NewCounterMetric(mname, val))
 			if err != nil {
-				return err
+				return fmt.Errorf("service.updateMetric.parseCounter: %w", err)
 			}
 		} else {
-			return metricerrors.ErrMetricValueNotValid
+			return errors.ErrMetricValueNotValid
 		}
 	default:
-		return metricerrors.ErrMetricTypeNotImplemented
+		return errors.ErrMetricTypeNotImplemented
 	}
 
 	return nil
@@ -112,7 +113,7 @@ func (s *service) UpdateMetrics(metricsSlice []metrics.Metric) error {
 		_, err := s.UpdateJSONMetric(m)
 
 		if err != nil {
-			return err
+			return fmt.Errorf("service.updateMetrics: %w", err)
 		}
 	}
 	return nil
@@ -121,7 +122,7 @@ func (s *service) UpdateMetrics(metricsSlice []metrics.Metric) error {
 func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
 	val, err := s.storage.Get(metric.ID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service.getJSONMetric: %w", err)
 	}
 
 	return json.Marshal(val)
@@ -130,7 +131,7 @@ func (s *service) GetJSONMetric(metric metrics.Metric) ([]byte, error) {
 func (s *service) UpdateJSONMetric(metric metrics.Metric) ([]byte, error) {
 	metric, err := s.storage.Set(metric)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("service.updateJSONMetric: %w", err)
 	}
 	return json.Marshal(metric)
 }
@@ -142,7 +143,7 @@ func (s *service) Shutdown() error {
 func (s *service) PingDB(dsn string) error {
 	err := retry.Do(func() error { return pg.PingDB(dsn) }, pg.NeedToRetry(), 4)
 	if err != nil {
-		return err
+		return fmt.Errorf("service.pingDB: %w", err)
 	}
 
 	return nil

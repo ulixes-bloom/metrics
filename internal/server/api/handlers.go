@@ -10,6 +10,8 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
+// GetMetric handles the HTTP request to retrieve a metric by its type and name.
+// It responds with the metric's value if found, or an error if not.
 func (a *api) GetMetric(res http.ResponseWriter, req *http.Request) {
 	mtype := chi.URLParam(req, "mtype")
 	mname := chi.URLParam(req, "mname")
@@ -28,6 +30,8 @@ func (a *api) GetMetric(res http.ResponseWriter, req *http.Request) {
 	res.Write([]byte(mval))
 }
 
+// UpdateMetric handles the HTTP request to update a metric's value by its type, name, and value.
+// It responds with a success status or an error if the update fails.
 func (a *api) UpdateMetric(res http.ResponseWriter, req *http.Request) {
 	mtype := chi.URLParam(req, "mtype")
 	mname := chi.URLParam(req, "mname")
@@ -46,6 +50,8 @@ func (a *api) UpdateMetric(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// UpdateMetrics handles the HTTP request to update multiple metrics at once.
+// It expects a JSON array of metrics, decodes it, and updates them in the service layer.
 func (a *api) UpdateMetrics(res http.ResponseWriter, req *http.Request) {
 	var m []metrics.Metric
 	dec := json.NewDecoder(req.Body)
@@ -66,6 +72,8 @@ func (a *api) UpdateMetrics(res http.ResponseWriter, req *http.Request) {
 	res.WriteHeader(http.StatusOK)
 }
 
+// GetMetricsHTMLTable handles the HTTP request to retrieve all metrics as HTML table.
+// It responds with the generated HTML table or an error if the retrieval fails.
 func (a *api) GetMetricsHTMLTable(res http.ResponseWriter, req *http.Request) {
 	table, err := a.service.GetMetricsHTMLTable()
 	if err != nil {
@@ -78,6 +86,8 @@ func (a *api) GetMetricsHTMLTable(res http.ResponseWriter, req *http.Request) {
 	res.Write(table)
 }
 
+// GetJSONMetric handles the HTTP request to retrieve a metric as a JSON object based on the provided metric name.
+// It responds with the metric data in JSON format or an error if the metric is not found.
 func (a *api) GetJSONMetric(res http.ResponseWriter, req *http.Request) {
 	var m metrics.Metric
 	dec := json.NewDecoder(req.Body)
@@ -97,6 +107,8 @@ func (a *api) GetJSONMetric(res http.ResponseWriter, req *http.Request) {
 	res.Write(metric)
 }
 
+// UpdateJSONMetric handles the HTTP request to update a metric based on the provided metric JSON object.
+// It responds with the updated metric data in JSON format or an error if the update fails.
 func (a *api) UpdateJSONMetric(res http.ResponseWriter, req *http.Request) {
 	var m metrics.Metric
 	dec := json.NewDecoder(req.Body)
@@ -118,6 +130,8 @@ func (a *api) UpdateJSONMetric(res http.ResponseWriter, req *http.Request) {
 	res.Write(metric)
 }
 
+// PingDB handles the HTTP request to check the database connection status.
+// It responds with a success status if the database is reachable, or an error if it is not.
 func (a *api) PingDB(res http.ResponseWriter, req *http.Request) {
 	err := a.service.PingDB(a.conf.DatabaseDSN)
 	if err != nil {

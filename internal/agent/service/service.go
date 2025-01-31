@@ -26,20 +26,20 @@ func (s *service) Poll(ctx context.Context) error {
 	g.Go(func() error {
 		err := s.pollRuntimeMetrics()
 		if err != nil {
-			return fmt.Errorf("pollRuntimeMetrics: %w", err)
+			return fmt.Errorf("service.poll: %w", err)
 		}
 		return nil
 	})
 	g.Go(func() error {
 		err := s.pollSystemMetrics(ctx)
 		if err != nil {
-			return fmt.Errorf("pollSystemMetrics: %w", err)
+			return fmt.Errorf("service.poll: %w", err)
 		}
 		return nil
 	})
 
 	if err := g.Wait(); err != nil {
-		return fmt.Errorf("failed to poll metrics: %w", err)
+		return fmt.Errorf("service.poll: %w", err)
 	}
 	return nil
 }
@@ -83,7 +83,7 @@ func (s *service) pollRuntimeMetrics() error {
 
 	err := s.storage.SetAll(metricsValues)
 	if err != nil {
-		return err
+		return fmt.Errorf("service.pollRuntimeMetrics: %w", err)
 	}
 
 	return nil
@@ -92,12 +92,12 @@ func (s *service) pollRuntimeMetrics() error {
 func (s *service) pollSystemMetrics(ctx context.Context) error {
 	vMem, err := mem.VirtualMemory()
 	if err != nil {
-		return fmt.Errorf("error while polling virtual memory: %w", err)
+		return fmt.Errorf("service.pollSystemMetrics.virtualMemory: %w", err)
 	}
 
 	utilisation, err := cpu.PercentWithContext(ctx, 0, false)
 	if err != nil {
-		return fmt.Errorf("error while polling cpu: %w", err)
+		return fmt.Errorf("service.pollSystemMetrics.cpu: %w", err)
 	}
 
 	metricsValues := []metrics.Metric{
@@ -108,7 +108,7 @@ func (s *service) pollSystemMetrics(ctx context.Context) error {
 
 	err = s.storage.SetAll(metricsValues)
 	if err != nil {
-		return err
+		return fmt.Errorf("service.pollSystemMetrics: %w", err)
 	}
 
 	return nil

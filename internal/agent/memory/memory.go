@@ -1,9 +1,10 @@
 package memory
 
 import (
+	"fmt"
 	"sync"
 
-	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metricerrors"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/errors"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -14,7 +15,7 @@ type storage struct {
 
 func NewStorage() *storage {
 	m := storage{
-		metrics: map[string]metrics.Metric{},
+		metrics: make(map[string]metrics.Metric, metrics.MetricsCount),
 	}
 	return &m
 }
@@ -36,7 +37,7 @@ func (s *storage) Set(metric metrics.Metric) error {
 	case metrics.Gauge:
 		s.metrics[metric.ID] = metric
 	default:
-		return metricerrors.ErrMetricTypeNotImplemented
+		return errors.ErrMetricTypeNotImplemented
 	}
 
 	return nil
@@ -45,7 +46,7 @@ func (s *storage) Set(metric metrics.Metric) error {
 func (s *storage) SetAll(meticsSlice []metrics.Metric) error {
 	for _, m := range meticsSlice {
 		if err := s.Set(m); err != nil {
-			return err
+			return fmt.Errorf("memory.setAll: %w", err)
 		}
 	}
 
