@@ -27,10 +27,10 @@ type (
 )
 
 func newResponseWriterWithMemory(w http.ResponseWriter) *responseWriterWithMemory {
-	responseMemory := responseMemory{}
+	respMemory := responseMemory{}
 	return &responseWriterWithMemory{
 		ResponseWriter: w,
-		responseMemory: &responseMemory,
+		responseMemory: &respMemory,
 	}
 }
 

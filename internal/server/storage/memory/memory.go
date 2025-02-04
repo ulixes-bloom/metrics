@@ -161,21 +161,21 @@ func (ms *memstorage) sync() error {
 
 // load metrics from the file into memory.
 func (ms *memstorage) restoreMetricsFromFile() error {
-	_, err := os.Stat(ms.conf.FileStoragePath)
-	if errors.Is(err, os.ErrNotExist) {
-		// file doesn't exist, nothing to restore
-		return nil
-	}
-
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return fmt.Errorf("memory.restoreMetricsFromFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Debug().Msgf("memory.restoreMetricsFromFile: failed to close file '%s'", ms.conf.FileStoragePath)
+		}
+	}()
 
-	var restoredMetrics map[string]metrics.Metric
-	err = json.NewDecoder(file).Decode(&restoredMetrics)
-	if err != nil {
+	restoredMetrics := make(map[string]metrics.Metric)
+	if err = json.NewDecoder(file).Decode(&restoredMetrics); err != nil {
 		return fmt.Errorf("memory.restoreMetricsFromFile.decode: %w", err)
 	}
 	ms.metrics = restoredMetrics
