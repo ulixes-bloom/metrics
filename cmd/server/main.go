@@ -45,13 +45,13 @@ func main() {
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}
-		ps, err := pg.NewStorage(db)
+		ps, err := pg.NewStorage(ctx, db)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}
 		storage = ps
 	} else {
-		ms, err := memory.NewStorage(conf)
+		ms, err := memory.NewStorage(ctx, conf)
 		if err != nil {
 			log.Fatal().Msg(err.Error())
 		}

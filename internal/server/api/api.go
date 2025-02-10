@@ -37,6 +37,6 @@ func (a *api) Run(ctx context.Context) error {
 	case err := <-errChan:
 		return fmt.Errorf("api.run: %w", err)
 	case <-ctx.Done():
-		return a.service.Shutdown()
+		return a.service.Shutdown(ctx)
 	}
 }

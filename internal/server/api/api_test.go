@@ -3,10 +3,12 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -15,7 +17,10 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
 )
 
-var Config = config.GetDefault()
+var (
+	Config         = config.GetDefault()
+	contextTimeout = 30 * time.Second
+)
 
 func testRequest(t *testing.T, ts *httptest.Server, method, path string, body []byte) (*http.Response, string) {
 	req, err := http.NewRequest(method, ts.URL+path, bytes.NewReader(body))
@@ -32,12 +37,15 @@ func testRequest(t *testing.T, ts *httptest.Server, method, path string, body []
 }
 
 func TestUpdateMetric(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
 	type args struct {
 		url          string
 		method       string
 		expectedCode int
 	}
-	ms, _ := memory.NewStorage(Config)
+	ms, _ := memory.NewStorage(ctx, Config)
 	newServer := New(Config, ms)
 	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
@@ -106,13 +114,16 @@ func TestUpdateMetric(t *testing.T) {
 }
 
 func TestUpdateJSONMetric(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
 	type args struct {
 		url          string
 		method       string
 		expectedCode int
 		body         []byte
 	}
-	ms, _ := memory.NewStorage(Config)
+	ms, _ := memory.NewStorage(ctx, Config)
 	newServer := New(Config, ms)
 	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
@@ -177,13 +188,16 @@ func TestUpdateJSONMetric(t *testing.T) {
 }
 
 func TestGzipCompression(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
+	defer cancel()
+
 	type args struct {
 		url          string
 		method       string
 		expectedCode int
 		body         []byte
 	}
-	ms, _ := memory.NewStorage(Config)
+	ms, _ := memory.NewStorage(ctx, Config)
 	newServer := New(Config, ms)
 	ts := httptest.NewServer(newServer.router)
 	defer ts.Close()
