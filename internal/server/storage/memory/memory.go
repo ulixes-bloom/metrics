@@ -120,9 +120,11 @@ func (ms *memstorage) setup(ctx context.Context) error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
-	// Restore metrics values from file
-	if err := ms.restoreMetricsFromFile(); err != nil {
-		return fmt.Errorf("memory.setup: %w", err)
+	if ms.conf.Restore {
+		// Restore metrics values from file
+		if err := ms.restoreMetricsFromFile(); err != nil {
+			return fmt.Errorf("memory.setup: %w", err)
+		}
 	}
 
 	ms.async(ctx)
@@ -138,7 +140,7 @@ func (ms *memstorage) async(ctx context.Context) {
 	if ms.conf.StoreInterval == 0 {
 		return
 	}
-	storeTicker := time.NewTicker(ms.conf.StoreInterval)
+	storeTicker := time.NewTicker(ms.conf.GetStoreIntervalDuration())
 
 	go func() {
 		for {

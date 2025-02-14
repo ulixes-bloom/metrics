@@ -12,13 +12,13 @@ import (
 )
 
 type Config struct {
-	RunAddr         string        `env:"ADDRESS"`           // The address and port for the server to listen on.
-	LogLvl          string        `env:"LOGLVL"`            // The logging level to be used (e.g., Info, Debug).
-	StoreInterval   time.Duration `env:"STORE_INTERVAL"`    // Interval at which metrics are stored.
-	FileStoragePath string        `env:"FILE_STORAGE_PATH"` // Path to store metrics data in a file.
-	Restore         bool          `env:"RESTORE"`           // Flag to determine if metrics should be restored from storage.
-	DatabaseDSN     string        `env:"DATABASE_DSN"`      // Data source name for connecting to a PostgreSQL database.
-	HashKey         string        `env:"KEY"`               // Key used for signing and validating metrics data.
+	RunAddr         string `env:"ADDRESS"`           // The address and port for the server to listen on.
+	LogLvl          string `env:"LOGLVL"`            // The logging level to be used (e.g., Info, Debug).
+	StoreInterval   int    `env:"STORE_INTERVAL"`    // Interval at which metrics are stored.
+	FileStoragePath string `env:"FILE_STORAGE_PATH"` // Path to store metrics data in a file.
+	Restore         bool   `env:"RESTORE"`           // Flag to determine if metrics should be restored from storage.
+	DatabaseDSN     string `env:"DATABASE_DSN"`      // Data source name for connecting to a PostgreSQL database.
+	HashKey         string `env:"KEY"`               // Key used for signing and validating metrics data.
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -28,7 +28,7 @@ func Parse() (*Config, error) {
 
 	flag.StringVar(&conf.RunAddr, "a", defaultValues.RunAddr, "address and port to run server")
 	flag.StringVar(&conf.LogLvl, "l", defaultValues.LogLvl, "logging level")
-	flag.DurationVar(&conf.StoreInterval, "i", defaultValues.StoreInterval, "store interval")
+	flag.IntVar(&conf.StoreInterval, "i", defaultValues.StoreInterval, "store interval")
 	flag.StringVar(&conf.FileStoragePath, "f", defaultValues.FileStoragePath, "file storage path")
 	flag.BoolVar(&conf.Restore, "r", defaultValues.Restore, "to restore metrics data")
 	flag.StringVar(&conf.DatabaseDSN, "d", defaultValues.DatabaseDSN, "Postgresql data source name")
@@ -41,9 +41,11 @@ func Parse() (*Config, error) {
 		return nil, fmt.Errorf("config.parse: %w", err)
 	}
 
-	if conf.StoreInterval <= 0 {
-		return nil, errors.New("config.parse: negative or zero store interval")
+	if conf.StoreInterval < 0 {
+		return nil, errors.New("config.parse: negative store interval")
 	}
+
+	fmt.Println(conf)
 
 	return &conf, nil
 }
@@ -55,10 +57,15 @@ func GetDefault() (conf *Config) {
 	return &Config{
 		RunAddr:         ":8080",
 		LogLvl:          "Info",
-		StoreInterval:   300 * time.Second,
+		StoreInterval:   300,
 		FileStoragePath: "metrics_store.txt",
 		Restore:         true,
 		DatabaseDSN:     "",
 		HashKey:         "",
 	}
+}
+
+// GetStoreIntervalDuration converts the StoreInterval field to a time.Duration.
+func (c *Config) GetStoreIntervalDuration() time.Duration {
+	return time.Duration(c.StoreInterval) * time.Second
 }
