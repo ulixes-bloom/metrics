@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -16,10 +17,10 @@ type pgstorage struct {
 	db *sql.DB
 }
 
-func NewStorage(db *sql.DB) (*pgstorage, error) {
+func NewStorage(ctx context.Context, db *sql.DB) (*pgstorage, error) {
 	newStorage := pgstorage{db: db}
 
-	if err := newStorage.createTables(); err != nil {
+	if err := newStorage.createTables(ctx); err != nil {
 		return nil, fmt.Errorf("pg.NewStorage: %w", err)
 	}
 
@@ -30,8 +31,8 @@ func NewStorage(db *sql.DB) (*pgstorage, error) {
 	return &newStorage, nil
 }
 
-func (ps *pgstorage) createTables() error {
-	_, err := ps.db.Exec(`
+func (ps *pgstorage) createTables(ctx context.Context) error {
+	_, err := ps.db.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS metrics
 		(
 			id    varchar(255) PRIMARY KEY, 
@@ -45,7 +46,7 @@ func (ps *pgstorage) createTables() error {
 	return nil
 }
 
-func (ps *pgstorage) Shutdown() error {
+func (ps *pgstorage) Shutdown(ctx context.Context) error {
 	return ps.db.Close()
 }
 
@@ -56,12 +57,12 @@ func (ps *pgstorage) PingDB() error {
 	return nil
 }
 
-func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
+func (ps *pgstorage) Set(ctx context.Context, metric metrics.Metric) (metrics.Metric, error) {
 	if metric.MType != metrics.Counter && metric.MType != metrics.Gauge {
 		return metric, appErrors.ErrMetricTypeNotImplemented
 	}
 
-	_, err := ps.db.Exec(`
+	_, err := ps.db.ExecContext(ctx, `
 		INSERT INTO metrics (id, type, delta, value)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (id) 
@@ -72,18 +73,18 @@ func (ps *pgstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 	return metric, nil
 }
 
-func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
+func (ps *pgstorage) SetAll(ctx context.Context, meticsSlice []metrics.Metric) error {
 	if len(meticsSlice) == 0 {
 		return nil
 	}
 
-	tx, err := ps.db.Begin()
+	tx, err := ps.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("pg.setAll.begin: %w", err)
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(`
+	stmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO metrics (id, type, delta, value)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (id)
@@ -96,7 +97,7 @@ func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
 		if m.MType != metrics.Counter && m.MType != metrics.Gauge {
 			return appErrors.ErrMetricTypeNotImplemented
 		}
-		_, err := stmt.Exec(m.ID, m.MType, m.Delta, m.Value)
+		_, err = stmt.ExecContext(ctx, m.ID, m.MType, m.Delta, m.Value)
 		if err != nil {
 			return fmt.Errorf("pg.setAll.stmtExec: %w", err)
 		}
@@ -109,9 +110,9 @@ func (ps *pgstorage) SetAll(meticsSlice []metrics.Metric) error {
 	return nil
 }
 
-func (ps *pgstorage) Get(name string) (val metrics.Metric, ok error) {
+func (ps *pgstorage) Get(ctx context.Context, name string) (val metrics.Metric, ok error) {
 	var metric metrics.Metric
-	row := ps.db.QueryRow(`
+	row := ps.db.QueryRowContext(ctx, `
 		SELECT id, type, delta, value
 		FROM metrics
 		WHERE id=$1`, name)
@@ -121,8 +122,8 @@ func (ps *pgstorage) Get(name string) (val metrics.Metric, ok error) {
 	return metric, nil
 }
 
-func (ps *pgstorage) GetAll() ([]metrics.Metric, error) {
-	rows, err := ps.db.Query(`
+func (ps *pgstorage) GetAll(ctx context.Context) ([]metrics.Metric, error) {
+	rows, err := ps.db.QueryContext(ctx, `
 		SELECT id, type, delta, value
 		FROM metrics`)
 	if err != nil {

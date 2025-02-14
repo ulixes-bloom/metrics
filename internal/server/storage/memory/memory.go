@@ -2,6 +2,7 @@ package memory
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,7 +22,7 @@ type memstorage struct {
 	mutex   sync.RWMutex
 }
 
-func NewStorage(conf *config.Config) (*memstorage, error) {
+func NewStorage(ctx context.Context, conf *config.Config) (*memstorage, error) {
 	ms := memstorage{
 		conf: conf,
 	}
@@ -48,7 +49,7 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 		}
 	}
 
-	err := ms.setup()
+	err := ms.setup(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("memory.newStorage.setup: %w", err)
 	}
@@ -56,7 +57,7 @@ func NewStorage(conf *config.Config) (*memstorage, error) {
 	return &ms, nil
 }
 
-func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
+func (ms *memstorage) Set(ctx context.Context, metric metrics.Metric) (metrics.Metric, error) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -74,26 +75,26 @@ func (ms *memstorage) Set(metric metrics.Metric) (metrics.Metric, error) {
 		return metric, appErrors.ErrMetricTypeNotImplemented
 	}
 
-	if err := ms.sync(); err != nil {
+	if err := ms.sync(ctx); err != nil {
 		return metric, fmt.Errorf("memory.set: %w", err)
 	}
 	return metric, nil
 }
 
-func (ms *memstorage) SetAll(metricsSlice []metrics.Metric) error {
+func (ms *memstorage) SetAll(ctx context.Context, metricsSlice []metrics.Metric) error {
 	for _, m := range metricsSlice {
-		if _, err := ms.Set(m); err != nil {
+		if _, err := ms.Set(ctx, m); err != nil {
 			return fmt.Errorf("memory.setAll.set: %w", err)
 		}
 	}
 
-	if err := ms.sync(); err != nil {
+	if err := ms.sync(ctx); err != nil {
 		return fmt.Errorf("memory.setAll: %w", err)
 	}
 	return nil
 }
 
-func (ms *memstorage) Get(name string) (metrics.Metric, error) {
+func (ms *memstorage) Get(ctx context.Context, name string) (metrics.Metric, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -104,7 +105,7 @@ func (ms *memstorage) Get(name string) (metrics.Metric, error) {
 	return metric, nil
 }
 
-func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
+func (ms *memstorage) GetAll(ctx context.Context) ([]metrics.Metric, error) {
 	ms.mutex.RLock()
 	defer ms.mutex.RUnlock()
 
@@ -115,7 +116,7 @@ func (ms *memstorage) GetAll() ([]metrics.Metric, error) {
 	return allMetrics, nil
 }
 
-func (ms *memstorage) setup() error {
+func (ms *memstorage) setup(ctx context.Context) error {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
 
@@ -124,16 +125,16 @@ func (ms *memstorage) setup() error {
 		return fmt.Errorf("memory.setup: %w", err)
 	}
 
-	ms.async()
+	ms.async(ctx)
 	return nil
 }
 
-func (ms *memstorage) Shutdown() error {
-	return ms.saveMetricsToFile()
+func (ms *memstorage) Shutdown(ctx context.Context) error {
+	return ms.saveMetricsToFile(ctx)
 }
 
 // start a background process to save metrics to a file with period conf.StoreInterval
-func (ms *memstorage) async() {
+func (ms *memstorage) async(ctx context.Context) {
 	if ms.conf.StoreInterval == 0 {
 		return
 	}
@@ -142,7 +143,7 @@ func (ms *memstorage) async() {
 	go func() {
 		for {
 			<-storeTicker.C
-			if err := ms.saveMetricsToFile(); err != nil {
+			if err := ms.saveMetricsToFile(ctx); err != nil {
 				log.Err(err)
 			}
 		}
@@ -150,9 +151,9 @@ func (ms *memstorage) async() {
 }
 
 // persist metrics values to a file if config.StoreInterval is set to 0.
-func (ms *memstorage) sync() error {
+func (ms *memstorage) sync(ctx context.Context) error {
 	if ms.conf.StoreInterval == 0 {
-		if err := ms.saveMetricsToFile(); err != nil {
+		if err := ms.saveMetricsToFile(ctx); err != nil {
 			return fmt.Errorf("memory.sync: %w", err)
 		}
 	}
@@ -161,21 +162,21 @@ func (ms *memstorage) sync() error {
 
 // load metrics from the file into memory.
 func (ms *memstorage) restoreMetricsFromFile() error {
-	_, err := os.Stat(ms.conf.FileStoragePath)
-	if errors.Is(err, os.ErrNotExist) {
-		// file doesn't exist, nothing to restore
-		return nil
-	}
-
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_RDONLY, 0644)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
 		return fmt.Errorf("memory.restoreMetricsFromFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
 	}
-	defer file.Close()
+	defer func() {
+		if err = file.Close(); err != nil {
+			log.Debug().Msgf("memory.restoreMetricsFromFile: failed to close file '%s'", ms.conf.FileStoragePath)
+		}
+	}()
 
-	var restoredMetrics map[string]metrics.Metric
-	err = json.NewDecoder(file).Decode(&restoredMetrics)
-	if err != nil {
+	restoredMetrics := make(map[string]metrics.Metric)
+	if err = json.NewDecoder(file).Decode(&restoredMetrics); err != nil {
 		return fmt.Errorf("memory.restoreMetricsFromFile.decode: %w", err)
 	}
 	ms.metrics = restoredMetrics
@@ -183,7 +184,7 @@ func (ms *memstorage) restoreMetricsFromFile() error {
 }
 
 // write metrics from memory to the file specified in config.FileStoragePath
-func (ms *memstorage) saveMetricsToFile() error {
+func (ms *memstorage) saveMetricsToFile(ctx context.Context) error {
 	file, err := os.OpenFile(ms.conf.FileStoragePath, os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		return fmt.Errorf("memory.saveMetricsToFile.openFile: '%s', %w", ms.conf.FileStoragePath, err)
@@ -192,7 +193,7 @@ func (ms *memstorage) saveMetricsToFile() error {
 
 	writer := bufio.NewWriter(file)
 	encoder := json.NewEncoder(writer)
-	msMetrics, _ := ms.GetAll()
+	msMetrics, _ := ms.GetAll(ctx)
 	if err := encoder.Encode(msMetrics); err != nil {
 		return fmt.Errorf("memory.saveMetricsToFile.encode: %w", err)
 	}

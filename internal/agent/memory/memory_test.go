@@ -1,8 +1,9 @@
-package memory
+package memory_test
 
 import (
 	"testing"
 
+	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
 )
 
@@ -13,7 +14,7 @@ var (
 
 func BenchmarkSetMetrics(b *testing.B) {
 	for range b.N {
-		s := NewStorage()
+		s := memory.NewStorage()
 		for _, v := range metrics.GaugeMetrics {
 			s.Set(metrics.NewGaugeMetric(v, gaugeValue))
 		}
@@ -33,7 +34,7 @@ func BenchmarkSetAll(b *testing.B) {
 	}
 
 	for range b.N {
-		s := NewStorage()
+		s := memory.NewStorage()
 		s.SetAll(metricsToSet)
 	}
 }
