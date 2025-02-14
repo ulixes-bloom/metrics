@@ -193,8 +193,7 @@ func (ms *memstorage) saveMetricsToFile(ctx context.Context) error {
 
 	writer := bufio.NewWriter(file)
 	encoder := json.NewEncoder(writer)
-	msMetrics, _ := ms.GetAll(ctx)
-	if err := encoder.Encode(msMetrics); err != nil {
+	if err := encoder.Encode(ms.metrics); err != nil {
 		return fmt.Errorf("memory.saveMetricsToFile.encode: %w", err)
 	}
 	return writer.Flush()
