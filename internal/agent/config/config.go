@@ -20,6 +20,7 @@ type Config struct {
 	RateLimit      int    `env:"RATE_LIMIT"`      // Rate limit for metric updates.
 	LogLvl         string `env:"LOGLVL"`          // Logging level (e.g., "info", "debug").
 	HashKey        string `env:"KEY"`             // Key for signing metrics data.
+	CryptoKey      string `env:"CRYPTO_KEY"`      // Public key for data encryption.
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -33,6 +34,7 @@ func Parse() (*Config, error) {
 	flag.IntVar(&conf.RateLimit, "l", defaultValues.RateLimit, "rate limit for metric updates")
 	flag.StringVar(&conf.LogLvl, "ll", defaultValues.LogLvl, "logging level")
 	flag.StringVar(&conf.HashKey, "k", defaultValues.HashKey, "key to sign the metrics data")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", defaultValues.HashKey, "public key for data encryption")
 	flag.Parse()
 
 	err := env.Parse(&conf)
@@ -64,6 +66,7 @@ func GetDefault() (conf *Config) {
 		RateLimit:      1,
 		LogLvl:         "info",
 		HashKey:        "",
+		CryptoKey:      "",
 	}
 }
 

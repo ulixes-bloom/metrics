@@ -19,6 +19,7 @@ type Config struct {
 	Restore         bool   `env:"RESTORE"`           // Flag to determine if metrics should be restored from storage.
 	DatabaseDSN     string `env:"DATABASE_DSN"`      // Data source name for connecting to a PostgreSQL database.
 	HashKey         string `env:"KEY"`               // Key used for signing and validating metrics data.
+	CryptoKey       string `env:"CRYPTO_KEY"`        // Public key for data encryption.
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -33,6 +34,7 @@ func Parse() (*Config, error) {
 	flag.BoolVar(&conf.Restore, "r", defaultValues.Restore, "to restore metrics data")
 	flag.StringVar(&conf.DatabaseDSN, "d", defaultValues.DatabaseDSN, "Postgresql data source name")
 	flag.StringVar(&conf.HashKey, "k", defaultValues.HashKey, "key to sign the metrics data")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", defaultValues.HashKey, "public key for data encryption")
 
 	flag.Parse()
 
@@ -44,8 +46,6 @@ func Parse() (*Config, error) {
 	if conf.StoreInterval < 0 {
 		return nil, errors.New("config.parse: negative store interval")
 	}
-
-	fmt.Println(conf)
 
 	return &conf, nil
 }
@@ -62,6 +62,7 @@ func GetDefault() (conf *Config) {
 		Restore:         true,
 		DatabaseDSN:     "",
 		HashKey:         "",
+		CryptoKey:       "",
 	}
 }
 
