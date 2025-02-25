@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"database/sql"
-	"os"
 	"os/signal"
+	"syscall"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -29,7 +29,11 @@ func main() {
 		log.Fatal().Err(err).Msg("unable to parse config")
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, stop := signal.NotifyContext(context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+		syscall.SIGQUIT,
+	)
 	defer stop()
 
 	logLvl, err := zerolog.ParseLevel(conf.LogLvl)

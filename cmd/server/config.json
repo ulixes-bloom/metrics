@@ -1,0 +1,10 @@
+{
+    "address": ":8080",
+    "loglvl": "Info",
+    "store_interval": 300,
+    "file_storage_path": "metrics_store.txt",
+    "restore": true,
+    "database_dsn": "",
+    "hash_key": "",
+    "crypto_key": ""
+}

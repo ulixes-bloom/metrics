@@ -18,6 +18,7 @@ cmd/server/main
 cmd/server/server
 cmd/staticlint/main
 cmd/staticlint/staticlint
+cmd/certgenerator/certgenerator
 
 # Dependency directories (remove the comment below to include it)
 vendor/

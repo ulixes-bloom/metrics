@@ -18,8 +18,14 @@ func (a *api) newRouter() *chi.Mux {
 	r.Get("/ping", a.PingDB)
 	r.Get("/value/{mtype}/{mname}", a.GetMetric)
 	r.Post("/update/{mtype}/{mname}/{mval}", a.UpdateMetric)
-	r.Post("/value/", a.GetJSONMetric)
-	r.Post("/update/", a.UpdateJSONMetric)
-	r.Post("/updates/", a.UpdateMetrics)
+
+	r.Group(func(r chi.Router) {
+		if a.conf.CryptoKey != "" {
+			r.Use(middleware.WithRSA(a.conf.CryptoKey))
+		}
+		r.Post("/value/", a.GetJSONMetric)
+		r.Post("/update/", a.UpdateJSONMetric)
+		r.Post("/updates/", a.UpdateMetrics)
+	})
 	return r
 }

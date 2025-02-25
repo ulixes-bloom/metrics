@@ -19,6 +19,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/metrics"
+	"github.com/ulixes-bloom/ya-metrics/internal/pkg/rsa"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
 
@@ -110,6 +111,13 @@ func (c *client) sendMetric(m metrics.Metric) error {
 	marshalled, err := json.Marshal(m)
 	if err != nil {
 		return fmt.Errorf("client.sendMetric: %w", err)
+	}
+
+	if c.conf.CryptoKey != "" {
+		marshalled, err = rsa.Encrypt(marshalled, c.conf.CryptoKey)
+		if err != nil {
+			return fmt.Errorf("client.sendMetric: %w", err)
+		}
 	}
 
 	// Compress the marshalled data
