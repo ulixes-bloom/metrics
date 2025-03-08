@@ -41,6 +41,10 @@ func main() {
 
 	ms := memory.NewStorage()
 
-	cl := client.New(conf, ms)
+	cl, err := client.New(conf, ms)
+	if err != nil {
+		log.Fatal().Msg(err.Error())
+	}
+
 	cl.Run(ctx)
 }

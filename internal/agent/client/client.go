@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 
@@ -28,15 +29,30 @@ type client struct {
 	service Service
 	http    *http.Client
 	conf    *config.Config
+	ip      string
 }
 
 // New creates and initializes a new client instance.
-func New(conf *config.Config, storage service.Storage) *client {
+func New(conf *config.Config, storage service.Storage) (*client, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, fmt.Errorf("client.new: Error while retrieving interface addresses, %w", err)
+	}
+	var ip string
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				ip = ipNet.IP.String()
+			}
+		}
+	}
+
 	return &client{
 		service: service.New(storage),
 		http:    &http.Client{},
 		conf:    conf,
-	}
+		ip:      ip,
+	}, nil
 }
 
 // Run starts background operations of the client:
@@ -141,6 +157,7 @@ func (c *client) sendMetric(m metrics.Metric) error {
 	req.Header.Add(headers.ContentType, "application/json")
 	req.Header.Add(headers.AcceptEncoding, "gzip")
 	req.Header.Add(headers.ContentEncoding, "gzip")
+	req.Header.Add(headers.XRealIP, c.ip)
 
 	// Execute the HTTP request
 	res, err := c.http.Do(req)

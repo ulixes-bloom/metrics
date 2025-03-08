@@ -24,6 +24,7 @@ type Config struct {
 	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`           // Data source name for connecting to a PostgreSQL database.
 	HashKey         string `env:"KEY" json:"hash_key"`                        // Key used for signing and validating metrics data.
 	CryptoKey       string `env:"CRYPTO_KEY" json:"crypto_key"`               // Public key for data encryption.
+	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`       // Public key for data encryption.
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -56,6 +57,7 @@ func Parse() (*Config, error) {
 	flag.StringVar(&conf.HashKey, "k", conf.HashKey, "key to sign the metrics data")
 	flag.StringVar(&conf.CryptoKey, "crypto-key", conf.HashKey, "public key for data encryption")
 	flag.StringVar(&configFile, "c", configFile, "json file with configuration")
+	flag.StringVar(&configFile, "t", conf.TrustedSubnet, "trusted ip adresses (CIDR notation)")
 	flag.Parse()
 
 	err = env.Parse(&conf)
@@ -114,6 +116,7 @@ func GetDefault() (conf *Config) {
 		DatabaseDSN:     "",
 		HashKey:         "",
 		CryptoKey:       "",
+		TrustedSubnet:   "",
 	}
 }
 

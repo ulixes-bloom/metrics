@@ -20,6 +20,9 @@ func (a *api) newRouter() *chi.Mux {
 	r.Post("/update/{mtype}/{mname}/{mval}", a.UpdateMetric)
 
 	r.Group(func(r chi.Router) {
+		if a.conf.TrustedSubnet != "" {
+			r.Use(middleware.WithIPResolving(a.conf.TrustedSubnet))
+		}
 		if a.conf.CryptoKey != "" {
 			r.Use(middleware.WithRSA(a.conf.CryptoKey))
 		}
