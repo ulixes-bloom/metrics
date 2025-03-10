@@ -70,7 +70,7 @@ func WithHashing(hashKey string) func(next http.Handler) http.Handler {
 			r.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 
 			// calculate the hash value of the request body using the provided hash key
-			calchash, err := hash.Encode([]byte(reqBody), hashKey)
+			calchash, err := hash.Encode(reqBody, hashKey)
 			if err != nil {
 				log.Error().Msg(err.Error())
 				http.Error(w, err.Error(), http.StatusBadRequest)

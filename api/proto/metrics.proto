@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package monitoring;
+
+option go_package = "metrics/proto";
+
+message Metric {
+  string id = 1;
+  string mtype = 2;
+  optional int64 delta = 3;
+  optional double value = 4;
+}
+
+message EmprtyResponse {}
+
+message UpdateMetricRequest {
+    Metric metric = 1;
+    optional string hash = 2;
+}
+
+service Monitoring {
+  rpc UpdateMetric(UpdateMetricRequest) returns (EmprtyResponse);
+}

@@ -25,6 +25,7 @@ type Config struct {
 	LogLvl         string `env:"LOGLVL" json:"loglvl"`                   // Logging level (e.g., "info", "debug").
 	HashKey        string `env:"KEY" json:"key"`                         // Key for signing metrics data.
 	CryptoKey      string `env:"CRYPTO_KEY" json:"crypto_key"`           // Public key for data encryption.
+	Protocol       string `env:"PROTOCOL" json:"protocol"`               // Protocol to connect to server (http/grpc).
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -54,8 +55,9 @@ func Parse() (*Config, error) {
 	flag.IntVar(&conf.RateLimit, "l", conf.RateLimit, "rate limit for metric updates")
 	flag.StringVar(&conf.LogLvl, "ll", conf.LogLvl, "logging level")
 	flag.StringVar(&conf.HashKey, "k", conf.HashKey, "key to sign the metrics data")
-	flag.StringVar(&conf.CryptoKey, "crypto-key", conf.HashKey, "public key for data encryption")
+	flag.StringVar(&conf.CryptoKey, "crypto-key", conf.CryptoKey, "public key for data encryption")
 	flag.StringVar(&configFile, "c", configFile, "json file with configuration")
+	flag.StringVar(&conf.Protocol, "pr", conf.Protocol, "protocol to connect to server (http/grpc)")
 	flag.Parse()
 
 	err = env.Parse(&conf)
@@ -73,7 +75,6 @@ func Parse() (*Config, error) {
 		return nil, errors.New("config.parse: negative or zero rate interval")
 	}
 
-	fmt.Println(conf)
 	return &conf, nil
 }
 
@@ -89,6 +90,7 @@ func GetDefault() (conf *Config) {
 		LogLvl:         "info",
 		HashKey:        "",
 		CryptoKey:      "",
+		Protocol:       "http",
 	}
 }
 

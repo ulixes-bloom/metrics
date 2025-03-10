@@ -5,7 +5,9 @@
     "file_storage_path": "metrics_store.txt",
     "restore": true,
     "database_dsn": "",
-    "hash_key": "",
+    "hash_key": "hash",
     "crypto_key": "",
-    "trusted_subnet": "192.168.0.0/16"
+    "crypto_public_key": "",
+    "trusted_subnet": "",
+    "grpc_address": ":3200"
 }

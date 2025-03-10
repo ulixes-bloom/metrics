@@ -1,9 +1,10 @@
 {
-    "address": "localhost:8080",
-    "report_interval": 10,
+    "address": ":3200",
+    "report_interval": 2,
     "poll_interval": 2,
     "rate_limit": 1,
     "loglvl": "info",
-    "key": "",
-    "crypto_key": ""
+    "key": "hash",
+    "crypto_key": "",
+    "protocol": "grpc"
 }

@@ -16,15 +16,17 @@ import (
 )
 
 type Config struct {
-	RunAddr         string `env:"ADDRESS" json:"address"`                     // The address and port for the server to listen on.
+	RunAddr         string `env:"ADDRESS" json:"address"`                     // The address and port for the http server to listen on.
 	LogLvl          string `env:"LOGLVL" json:"loglvl"`                       // The logging level to be used (e.g., Info, Debug).
 	StoreInterval   int    `env:"STORE_INTERVAL" json:"store_interval"`       // Interval at which metrics are stored.
 	FileStoragePath string `env:"FILE_STORAGE_PATH" json:"file_storage_path"` // Path to store metrics data in a file.
 	Restore         bool   `env:"RESTORE" json:"restore"`                     // Flag to determine if metrics should be restored from storage.
 	DatabaseDSN     string `env:"DATABASE_DSN" json:"database_dsn"`           // Data source name for connecting to a PostgreSQL database.
 	HashKey         string `env:"KEY" json:"hash_key"`                        // Key used for signing and validating metrics data.
-	CryptoKey       string `env:"CRYPTO_KEY" json:"crypto_key"`               // Public key for data encryption.
-	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`       // Public key for data encryption.
+	PrivateKey      string `env:"CRYPTO_KEY" json:"crypto_key"`               // Private key for data decryption in http and TLS connecion in grpc.
+	PublicKey       string `env:"CRYPTO_PUBLIC_KEY" json:"crypto_public_key"` // Public key for TLS connection in grpc.
+	TrustedSubnet   string `env:"TRUSTED_SUBNET" json:"trusted_subnet"`       // Trused agent subnet.
+	GRPCRunAddr     string `env:"GRPC_ADDRESS" json:"grpc_address"`           // The address and port for the grpc server to listen on.
 }
 
 // Parse parses the configuration from command-line flags and environment variables.
@@ -48,16 +50,18 @@ func Parse() (*Config, error) {
 		return nil, fmt.Errorf("config.parse: %w", err)
 	}
 
-	flag.StringVar(&conf.RunAddr, "a", conf.RunAddr, "address and port to run server")
+	flag.StringVar(&conf.RunAddr, "a", conf.RunAddr, "address and port to run http server (default :8080)")
 	flag.StringVar(&conf.LogLvl, "l", conf.LogLvl, "logging level")
 	flag.IntVar(&conf.StoreInterval, "i", conf.StoreInterval, "store interval")
 	flag.StringVar(&conf.FileStoragePath, "f", conf.FileStoragePath, "file storage path")
 	flag.BoolVar(&conf.Restore, "r", conf.Restore, "to restore metrics data")
-	flag.StringVar(&conf.DatabaseDSN, "d", conf.DatabaseDSN, "Postgresql data source name")
+	flag.StringVar(&conf.DatabaseDSN, "d", conf.DatabaseDSN, "postgresql data source name")
 	flag.StringVar(&conf.HashKey, "k", conf.HashKey, "key to sign the metrics data")
-	flag.StringVar(&conf.CryptoKey, "crypto-key", conf.HashKey, "public key for data encryption")
+	flag.StringVar(&conf.PrivateKey, "crypto-key", conf.PrivateKey, "private key for data decryption in http and TLS connecion in grpc")
+	flag.StringVar(&conf.PublicKey, "public-key", conf.PublicKey, "public key for TLS connection in grpc")
 	flag.StringVar(&configFile, "c", configFile, "json file with configuration")
-	flag.StringVar(&configFile, "t", conf.TrustedSubnet, "trusted ip adresses (CIDR notation)")
+	flag.StringVar(&conf.TrustedSubnet, "t", conf.TrustedSubnet, "trusted ip adresses (CIDR notation)")
+	flag.StringVar(&conf.GRPCRunAddr, "ga", conf.GRPCRunAddr, "address and port to run grpc server (default :3200)")
 	flag.Parse()
 
 	err = env.Parse(&conf)
@@ -69,7 +73,6 @@ func Parse() (*Config, error) {
 		return nil, errors.New("config.parse: negative store interval")
 	}
 
-	fmt.Println(conf)
 	return &conf, nil
 }
 
@@ -115,8 +118,10 @@ func GetDefault() (conf *Config) {
 		Restore:         true,
 		DatabaseDSN:     "",
 		HashKey:         "",
-		CryptoKey:       "",
+		PrivateKey:      "",
+		PublicKey:       "",
 		TrustedSubnet:   "",
+		GRPCRunAddr:     ":3200",
 	}
 }
 

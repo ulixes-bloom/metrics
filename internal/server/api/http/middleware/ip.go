@@ -9,6 +9,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
 )
 
+// WithIPResolving is a middleware that checks whether the client's IP address is within a trusted subnet.
 func WithIPResolving(trustedSubnet string) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -37,6 +38,8 @@ func WithIPResolving(trustedSubnet string) func(next http.Handler) http.Handler 
 	}
 }
 
+// resolveIP extracts and parses the IP address from the "X-Real-IP" header in the HTTP request.
+// If the header is missing or the IP is invalid, it returns an error.
 func resolveIP(r *http.Request) (net.IP, error) {
 	ipStr := r.Header.Get(headers.XRealIP)
 	ip := net.ParseIP(ipStr)
