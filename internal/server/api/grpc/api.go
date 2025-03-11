@@ -18,37 +18,37 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type grpcApi struct {
+type grpcAPI struct {
 	proto.UnimplementedMonitoringServer
 
 	service api.Service
 	conf    *config.Config
 }
 
-func (g *grpcApi) UpdateMetric(ctx context.Context, in *proto.UpdateMetricRequest) (*proto.EmprtyResponse, error) {
+func (g *grpcAPI) UpdateMetric(ctx context.Context, in *proto.UpdateMetricRequest) (*proto.EmprtyResponse, error) {
 	var EmprtyResponse proto.EmprtyResponse
 	metric, err := metrics.NewMetric(in.Metric.Id, in.Metric.Mtype, in.Metric.GetValue(), in.Metric.GetDelta())
 	if err != nil {
-		return nil, status.Errorf(codes.Unknown, err.Error())
+		return nil, status.Error(codes.Unknown, err.Error())
 	}
 
 	if _, err = g.service.UpdateJSONMetric(ctx, metric); err != nil {
-		return nil, status.Errorf(codes.Unknown, err.Error())
+		return nil, status.Error(codes.Unknown, err.Error())
 	}
 
 	return &EmprtyResponse, nil
 }
 
-func New(conf *config.Config, storage service.Storage) *grpcApi {
+func New(conf *config.Config, storage service.Storage) *grpcAPI {
 	srv := service.New(storage, conf)
-	newAPI := grpcApi{
+	newAPI := grpcAPI{
 		service: srv,
 		conf:    conf,
 	}
 	return &newAPI
 }
 
-func (g *grpcApi) Run(ctx context.Context) error {
+func (g *grpcAPI) Run(ctx context.Context) error {
 	errChan := make(chan error, 1)
 
 	listen, err := net.Listen("tcp", g.conf.GRPCRunAddr)
@@ -101,7 +101,7 @@ func (g *grpcApi) Run(ctx context.Context) error {
 }
 
 // Load TLS credentials from PEM files
-func (g *grpcApi) loadTLSCredentials() (credentials.TransportCredentials, error) {
+func (g *grpcAPI) loadTLSCredentials() (credentials.TransportCredentials, error) {
 	cert, err := tls.LoadX509KeyPair(g.conf.PublicKey, g.conf.PrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("grpcapi.loadTLSCredentials: failed to load key pair: %w", err)

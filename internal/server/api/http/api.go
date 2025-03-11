@@ -11,15 +11,15 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/server/service"
 )
 
-type httpApi struct {
+type httpAPI struct {
 	service api.Service
 	conf    *config.Config
 	router  *chi.Mux
 }
 
-func New(conf *config.Config, storage service.Storage) *httpApi {
+func New(conf *config.Config, storage service.Storage) *httpAPI {
 	srv := service.New(storage, conf)
-	newAPI := httpApi{
+	newAPI := httpAPI{
 		service: srv,
 		conf:    conf,
 	}
@@ -27,7 +27,7 @@ func New(conf *config.Config, storage service.Storage) *httpApi {
 	return &newAPI
 }
 
-func (a *httpApi) Run(ctx context.Context) error {
+func (a *httpAPI) Run(ctx context.Context) error {
 	errChan := make(chan error, 1)
 
 	go func() {

@@ -5,7 +5,7 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/server/api/http/middleware"
 )
 
-func (a *httpApi) newRouter() *chi.Mux {
+func (a *httpAPI) newRouter() *chi.Mux {
 	r := chi.NewRouter()
 
 	r.Use(middleware.WithLogging)
