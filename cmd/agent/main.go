@@ -7,7 +7,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/ulixes-bloom/ya-metrics/internal/agent/client"
+	grpcclient "github.com/ulixes-bloom/ya-metrics/internal/agent/client/grpc"
+	httpclient "github.com/ulixes-bloom/ya-metrics/internal/agent/client/http"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/memory"
 )
@@ -41,6 +42,22 @@ func main() {
 
 	ms := memory.NewStorage()
 
-	cl := client.New(conf, ms)
-	cl.Run(ctx)
+	switch conf.Protocol {
+	case "http":
+		cl, err := httpclient.New(conf, ms)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+
+		cl.Run(ctx)
+	case "grpc":
+		cl, err := grpcclient.New(conf, ms)
+		if err != nil {
+			log.Fatal().Msg(err.Error())
+		}
+
+		cl.Run(ctx)
+	default:
+		log.Fatal().Msgf("unknown client protocol %s", conf.Protocol)
+	}
 }

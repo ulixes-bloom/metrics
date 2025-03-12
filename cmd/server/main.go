@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/ulixes-bloom/ya-metrics/internal/server/api"
+	grpcserver "github.com/ulixes-bloom/ya-metrics/internal/server/api/grpc"
+	httpserver "github.com/ulixes-bloom/ya-metrics/internal/server/api/http"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/storage/memory"
@@ -61,8 +63,25 @@ func main() {
 		storage = ms
 	}
 
-	err = api.New(conf, storage).Run(ctx)
-	if err != nil {
-		log.Fatal().Msg(err.Error())
-	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		err = grpcserver.New(conf, storage).Run(ctx)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			ctx.Done()
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		err = httpserver.New(conf, storage).Run(ctx)
+		if err != nil {
+			log.Error().Msg(err.Error())
+			ctx.Done()
+		}
+	}()
+	wg.Wait()
 }

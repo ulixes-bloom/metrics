@@ -2,12 +2,25 @@
 // including both "gauge" and "counter" types, and supports serialization to JSON.
 package metrics
 
+import "fmt"
+
 // Metric represents a single metric with an ID, type, and a value or delta depending on the metric type.
 type Metric struct {
 	ID    string   `json:"id"`              // Metric name (ID)
 	MType string   `json:"type"`            // Metric type: "gauge" or "counter"
 	Delta *int64   `json:"delta,omitempty"` // Delta value for counter type metrics (optional)
 	Value *float64 `json:"value,omitempty"` // Value for gauge type metrics (optional)
+}
+
+func NewMetric(id, mtype string, val float64, delta int64) (Metric, error) {
+	switch mtype {
+	case Gauge:
+		return NewGaugeMetric(id, val), nil
+	case Counter:
+		return NewCounterMetric(id, delta), nil
+	default:
+		return Metric{}, fmt.Errorf("metrics.newMetric: Unknown metric type %s", mtype)
+	}
 }
 
 func NewGaugeMetric(id string, val float64) Metric {

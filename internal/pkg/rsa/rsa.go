@@ -28,7 +28,6 @@ func Encrypt(plaintext []byte, publicKeyPath string) ([]byte, error) {
 		return nil, fmt.Errorf("cipher.encrypt: %w", err)
 	}
 
-	fmt.Println(string(ciphertext))
 	return ciphertext, nil
 }
 

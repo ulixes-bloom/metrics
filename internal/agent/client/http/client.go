@@ -1,7 +1,7 @@
-// Package client provides implemetation of the agent
+// Package httpclient provides HTTP implemetation of the agent
 // It is ressponsible for polling system metrics and
 // reporting them to a remote server via HTTP.
-package client
+package httpclient
 
 import (
 	"bytes"
@@ -9,12 +9,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/ulixes-bloom/ya-metrics/internal/agent/client"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/agent/service"
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/headers"
@@ -23,20 +25,35 @@ import (
 	"github.com/ulixes-bloom/ya-metrics/internal/pkg/workerpool"
 )
 
-// client handles polling metrics from the system and reporting them to a server.
-type client struct {
-	service Service
+// httpClient handles polling metrics from the system and reporting them to a server.
+type httpClient struct {
+	service client.Service
 	http    *http.Client
 	conf    *config.Config
+	ip      string
 }
 
 // New creates and initializes a new client instance.
-func New(conf *config.Config, storage service.Storage) *client {
-	return &client{
+func New(conf *config.Config, storage service.Storage) (*httpClient, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return nil, fmt.Errorf("client.new: Error while retrieving interface addresses, %w", err)
+	}
+	var ip string
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				ip = ipNet.IP.String()
+			}
+		}
+	}
+
+	return &httpClient{
 		service: service.New(storage),
 		http:    &http.Client{},
 		conf:    conf,
-	}
+		ip:      ip,
+	}, nil
 }
 
 // Run starts background operations of the client:
@@ -46,25 +63,25 @@ func New(conf *config.Config, storage service.Storage) *client {
 // 2. Reporting metrics to the server with the period specified in config.ReportInterval.
 //
 // It runs these operations concurrently and waits for them to complete.
-func (c *client) Run(ctx context.Context) {
+func (c *httpClient) Run(ctx context.Context) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		c.pollMetrics(ctx)
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
 		c.reportMetrics(ctx)
-		wg.Done()
 	}()
 
 	wg.Wait()
 }
 
 // pollMetrics periodically polls system metrics and stores them in memory.
-func (c *client) pollMetrics(ctx context.Context) {
+func (c *httpClient) pollMetrics(ctx context.Context) {
 	pollTicker := time.NewTicker(c.conf.GetPollIntervalDuration())
 	defer pollTicker.Stop()
 
@@ -84,7 +101,7 @@ func (c *client) pollMetrics(ctx context.Context) {
 
 // reportMetrics periodically retrieves all stored metrics from memory and sends them to the server.
 // sending is done in parallel using a workerpool.
-func (c *client) reportMetrics(ctx context.Context) {
+func (c *httpClient) reportMetrics(ctx context.Context) {
 	reportTicker := time.NewTicker(c.conf.GetReportIntervalDuration())
 	defer reportTicker.Stop()
 
@@ -106,7 +123,7 @@ func (c *client) reportMetrics(ctx context.Context) {
 }
 
 // sendMetric sends a single metric to the server after compressing and encoding it.
-func (c *client) sendMetric(m metrics.Metric) error {
+func (c *httpClient) sendMetric(m metrics.Metric) error {
 	// Marshal metric to JSON
 	marshalled, err := json.Marshal(m)
 	if err != nil {
@@ -141,6 +158,7 @@ func (c *client) sendMetric(m metrics.Metric) error {
 	req.Header.Add(headers.ContentType, "application/json")
 	req.Header.Add(headers.AcceptEncoding, "gzip")
 	req.Header.Add(headers.ContentEncoding, "gzip")
+	req.Header.Add(headers.XRealIP, c.ip)
 
 	// Execute the HTTP request
 	res, err := c.http.Do(req)

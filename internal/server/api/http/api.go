@@ -1,4 +1,4 @@
-package api
+package httpapi
 
 import (
 	"context"
@@ -6,19 +6,20 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/ulixes-bloom/ya-metrics/internal/server/api"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/config"
 	"github.com/ulixes-bloom/ya-metrics/internal/server/service"
 )
 
-type api struct {
-	service Service
+type httpAPI struct {
+	service api.Service
 	conf    *config.Config
 	router  *chi.Mux
 }
 
-func New(conf *config.Config, storage service.Storage) *api {
+func New(conf *config.Config, storage service.Storage) *httpAPI {
 	srv := service.New(storage, conf)
-	newAPI := api{
+	newAPI := httpAPI{
 		service: srv,
 		conf:    conf,
 	}
@@ -26,7 +27,7 @@ func New(conf *config.Config, storage service.Storage) *api {
 	return &newAPI
 }
 
-func (a *api) Run(ctx context.Context) error {
+func (a *httpAPI) Run(ctx context.Context) error {
 	errChan := make(chan error, 1)
 
 	go func() {
@@ -35,7 +36,7 @@ func (a *api) Run(ctx context.Context) error {
 
 	select {
 	case err := <-errChan:
-		return fmt.Errorf("api.run: %w", err)
+		return fmt.Errorf("httpapi.run: %w", err)
 	case <-ctx.Done():
 		return a.service.Shutdown(ctx)
 	}
