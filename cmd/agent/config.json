@@ -1,10 +1,10 @@
 {
-    "address": ":3200",
+    "address": ":8080",
     "report_interval": 2,
     "poll_interval": 2,
     "rate_limit": 1,
     "loglvl": "info",
-    "key": "hash",
+    "key": "",
     "crypto_key": "",
-    "protocol": "grpc"
+    "protocol": "http"
 }
