@@ -68,13 +68,13 @@ func (c *httpClient) Run(ctx context.Context) {
 	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		c.pollMetrics(ctx)
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
 		c.reportMetrics(ctx)
-		wg.Done()
 	}()
 
 	wg.Wait()

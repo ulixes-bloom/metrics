@@ -16,6 +16,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type grpcAPI struct {
@@ -25,8 +26,7 @@ type grpcAPI struct {
 	conf    *config.Config
 }
 
-func (g *grpcAPI) UpdateMetric(ctx context.Context, in *proto.UpdateMetricRequest) (*proto.EmprtyResponse, error) {
-	var EmprtyResponse proto.EmprtyResponse
+func (g *grpcAPI) UpdateMetric(ctx context.Context, in *proto.UpdateMetricRequest) (*emptypb.Empty, error) {
 	metric, err := metrics.NewMetric(in.Metric.Id, in.Metric.Mtype, in.Metric.GetValue(), in.Metric.GetDelta())
 	if err != nil {
 		return nil, status.Error(codes.Unknown, err.Error())
@@ -36,7 +36,7 @@ func (g *grpcAPI) UpdateMetric(ctx context.Context, in *proto.UpdateMetricReques
 		return nil, status.Error(codes.Unknown, err.Error())
 	}
 
-	return &EmprtyResponse, nil
+	return nil, nil
 }
 
 func New(conf *config.Config, storage service.Storage) *grpcAPI {

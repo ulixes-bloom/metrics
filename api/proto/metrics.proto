@@ -4,6 +4,8 @@ package monitoring;
 
 option go_package = "metrics/proto";
 
+import "google/protobuf/empty.proto";
+
 message Metric {
   string id = 1;
   string mtype = 2;
@@ -11,13 +13,11 @@ message Metric {
   optional double value = 4;
 }
 
-message EmprtyResponse {}
-
 message UpdateMetricRequest {
     Metric metric = 1;
     optional string hash = 2;
 }
 
 service Monitoring {
-  rpc UpdateMetric(UpdateMetricRequest) returns (EmprtyResponse);
+  rpc UpdateMetric(UpdateMetricRequest) returns (google.protobuf.Empty);
 }

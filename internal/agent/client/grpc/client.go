@@ -95,13 +95,13 @@ func (c *grpcClient) Run(ctx context.Context) {
 	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		c.pollMetrics(ctx)
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
 		c.reportMetrics(ctx)
-		wg.Done()
 	}()
 
 	wg.Wait()
@@ -185,21 +185,4 @@ func (c *grpcClient) sendMetric(m metrics.Metric) error {
 	}
 
 	return nil
-}
-
-func (c *grpcClient) loadTLSCredentials() (credentials.TransportCredentials, error) {
-	pemData, err := os.ReadFile(c.conf.CryptoKey)
-	if err != nil {
-		return nil, fmt.Errorf("grpcclient.loadTLSCredentials: Failed to read public.pem: %v", err)
-	}
-
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(pemData) {
-		return nil, fmt.Errorf("grpcclient.loadTLSCredentials: Failed to add public key to cert pool")
-	}
-
-	creds := credentials.NewTLS(&tls.Config{
-		RootCAs: certPool,
-	})
-	return creds, nil
 }

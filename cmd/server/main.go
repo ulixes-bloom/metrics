@@ -67,21 +67,21 @@ func main() {
 	wg.Add(2)
 
 	go func() {
+		defer wg.Done()
 		err = grpcserver.New(conf, storage).Run(ctx)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			ctx.Done()
 		}
-		wg.Done()
 	}()
 
 	go func() {
+		defer wg.Done()
 		err = httpserver.New(conf, storage).Run(ctx)
 		if err != nil {
 			log.Error().Msg(err.Error())
 			ctx.Done()
 		}
-		wg.Done()
 	}()
 	wg.Wait()
 }
